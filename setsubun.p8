@@ -66,6 +66,7 @@ function credits_scn(nxt)
  
  function scn.draw()
   cls(1)
+  color(7)
   print("josiah & matt present...", 20,60)
  end
 
@@ -83,6 +84,7 @@ function title_scn(nxt)
  
  function scn.draw(s)
   cls(1)
+  color(7)
   print("setsubun", 32, 48)
   print("press ❎ to start", 32, 60)
  end
@@ -100,6 +102,7 @@ function results_scn(nxt, score)
 
  function scn.draw()
   cls(1)
+  color(7)
   print("your score: "..score, 28, 48)
   print("press ❎ to restart")
  end
@@ -108,6 +111,8 @@ function results_scn(nxt, score)
 end
 
 -->8
+--game scene
+
 function game_scn(nxt)
  local scn={
   t=0,
@@ -168,7 +173,7 @@ function game_scn(nxt)
   end
  end
  
- function scn.draw()
+ function scn.draw(s)
   cls()
   cam_draw()
   map_draw()
@@ -190,12 +195,17 @@ function game_scn(nxt)
    print(dad.x,cam.x+4,cam.y+10,8)
    print(abs(dad.x-(cam.x+cam.followx)),cam.x+4,cam.y+16,8)
   end
+  
+  local remaining_time=game_time-scn.t
+  hud_draw(remaining_time,s.score)
  end
  
  return scn
 end
 
 -->8
+--dad
+
 function init_dad(x,y)
  local dad={
   x=63,
@@ -238,7 +248,7 @@ function vtoward(x1,y1,x2,y2)
 end
 
 -->8
--- flow
+--flow
 
 function once(f)
  local is_done = false
@@ -501,6 +511,53 @@ function kids_draw(dt)
  for k,v in pairs(kids.group) do
   v:draw(dt)
  end 
+end
+-->8
+-- hud
+palette={
+ bg=5,
+ bg_alt=1,
+ fg=7,
+ border=7,
+ accent=8,
+}
+
+function hud_draw(remaining_time,score)
+ camera()
+ local x,y=0,0
+ 
+ -- background for us to draw on top of
+ boxfill(x,y, 128, 16, palette.bg)
+ 
+ x=2
+ y=2
+ 
+ -- time remaining
+ print("time",x,y,palette.fg)
+ 
+ x+=24
+ 
+ local w,h=128-4-x,4
+ local fac=remaining_time/game_time
+ boxfill(x,y,w,h,palette.bg_alt)
+ boxfill(x,y,w*fac,h,palette.accent)
+ box(x,y,w,h,palette.border)
+
+ -- score
+ x=2
+ y+=8
+ print("score",x,y,palette.fg)
+ 
+ x+=24
+ print("100",x,y,palette.fg)
+end
+
+function box(x,y,w,h,col)
+ rect(x,y,x+w,y+h,col)
+end
+
+function boxfill(x,y,w,h,col)
+ rectfill(x,y,x+w,y+h,col)
 end
 __gfx__
 00000000000077000077000000000000707777077777777700000000000000000000000000000000000000000000000000000000000000000000000000000000
