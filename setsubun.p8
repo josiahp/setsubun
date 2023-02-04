@@ -1,95 +1,200 @@
 pico-8 cartridge // http://www.pico-8.com
-version 39
+version 40
 __lua__
+
 function _init()
- debug=true
- 
  t=time()
- --dad is 24 pixels tall, so
- -- 1.5m == 24px
- -- 9.8m == 156px?
- gravity=9.81*2
  dt=0
+ 
+ -- constants
+ gravity=9.81*2
  drag=0.1
- cam_init()
- dad=init_dad(63,63)
- target_init()
- kids_init()
- add(kids.group,kids_new(32,32))
- beans_init()
+
+ scn=nil
+ game_time=10 -- seconds
  
- beangroups={}
- --bg=beans_new(63,63,5)
- 
- 
- --tar=target_new(63,63)
+ game_flow = flow.scene(credits_scn)
+  .andthen(
+   -- main game loop
+   flow.forever(
+    flow
+     .scene(title_scn)
+     .andthen(flow.scene(game_scn))
+     .flatmap(function(score)
+       return flow.scene(results_scn, score)
+      end)
+    )
+  )
+
+ game_flow.go(
+  -- transition to next scene
+  function(nxt)
+   scn = nxt
+  end,
+  -- end game
+  function() end
+ )
 end
 
 function _update()
  local tt=time()
  dt=tt-t
  t=tt
- 
- cam_update(dt)
- 
---target demo
--- tar:update(dt)
--- if btn(⬆️) then
---  tar.basey-=2
--- elseif btn(⬇️) then
---  tar.basey+=2
--- end
--- 
--- if btn(⬅️) then
---  tar.basex-=2
--- elseif btn(➡️) then
---  tar.basex+=2
--- end
- 
--- debug throw beans
--- if debug then
---	 if btnp(❎) then
---	  local vx,vy=vtoward(tar.x,tar.y,40,80)
---	  bg=beans_new(40,80,5,vx,vy)
---	 end
---	end
- 
- dad:update(dt)
- kids_update(dt)
- --beans:update(dt)
- 
- for k,v in pairs(beangroups) do
-  v:update(dt)
- end
+ scn:update(dt)
 end
 
 function _draw()
- cls()
- cam_draw()
--- target demo
--- tar:draw()
--- if debug then
---  circ(40,80,3,8)
---  print("throw from here",10,85,6)
--- end
-
- map(0,0,0,0,32,32)
- dad:draw()
- 
- kids_draw()
- for k,v in pairs(beangroups) do
-  v:draw()
- end
- 
- if debug then
-  print(cam.x,cam.x+4,cam.y+4,8)
-  print(dad.x,cam.x+4,cam.y+10,8)
-  print(abs(dad.x-(cam.x+cam.followx)),cam.x+4,cam.y+16,8)
- end
+ scn:draw()
 end
--->8
---dad
 
+-- scenes
+
+function credits_scn(nxt)
+ local scn = {
+  t=0
+ }
+
+ function scn.update(s,dt)
+  s.t += dt
+  if s.t > 2 then
+   nxt(nil)
+  end
+  if btnp(❎) then
+   nxt(nil)
+  end
+ end
+ 
+ function scn.draw()
+  cls(1)
+  print("josiah & matt present...", 20,60)
+ end
+
+ return scn
+end
+
+function title_scn(nxt)
+ local scn = {}
+  
+ function scn.update(s,dt)
+  if btnp(❎) then
+   nxt(nil)
+  end
+ end
+ 
+ function scn.draw(s)
+  cls(1)
+  print("setsubun", 32, 48)
+  print("press ❎ to start", 32, 60)
+ end
+ 
+ return scn
+end
+
+function results_scn(nxt, score)
+ local scn = {}
+ function scn.update(s,dt)
+  if btnp(❎) then
+   nxt(nil)
+  end
+ end
+
+ function scn.draw()
+  cls(1)
+  print("your score: "..score, 28, 48)
+  print("press ❎ to restart")
+ end
+
+ return scn
+end
+
+-->8
+function game_scn(nxt)
+ local scn={
+  t=0,
+  score=0,
+ }
+ 
+ --dad is 24 pixels tall, so
+ -- 1.5m == 24px
+ -- 9.8m == 156px?
+ dad=init_dad(63,63)
+ 
+ cam_init()
+ target_init()
+ kids_init()
+ add(kids.group,kids_new(32,32))
+ beans_init()
+  
+ beangroups={}
+ --bg=beans_new(63,63,5)
+ --tar=target_new(63,63)
+ 
+ function scn.update(s, dt)
+  cam_update(dt)
+  --target demo
+  -- tar:update(dt)
+  -- if btn(⬆️) then
+  --  tar.basey-=2
+  -- elseif btn(⬇️) then
+  --  tar.basey+=2
+  -- end
+  -- 
+  -- if btn(⬅️) then
+  --  tar.basex-=2
+  -- elseif btn(➡️) then
+  --  tar.basex+=2
+  -- end
+
+  -- debug throw beans
+  -- if debug then
+  --	 if btnp(❎) then
+  --	  local vx,vy=vtoward(tar.x,tar.y,40,80)
+  --	  bg=beans_new(40,80,5,vx,vy)
+  --	 end
+  --	end
+    
+  dad:update(dt)
+  kids_update(dt)
+  --beans:update(dt)
+    
+  for k,v in pairs(beangroups) do
+   v:update(dt)
+  end
+ 
+  s.t += dt
+  if s.t > game_time then
+   nxt(s.score)
+  end
+ end
+ 
+ function scn.draw()
+  cls()
+  cam_draw()
+  -- target demo
+  -- tar:draw()
+  -- if debug then
+  --  circ(40,80,3,8)
+  --  print("throw from here",10,85,6)
+  -- end
+  map(0,0,0,0,32,32)
+  dad:draw()
+    
+  kids_draw()
+  for k,v in pairs(beangroups) do
+   v:draw()
+  end
+    
+  if debug then
+   print(cam.x,cam.x+4,cam.y+4,8)
+   print(dad.x,cam.x+4,cam.y+10,8)
+   print(abs(dad.x-(cam.x+cam.followx)),cam.x+4,cam.y+16,8)
+  end
+ end
+ 
+ return scn
+end
+
+-->8
 function init_dad(x,y)
  local dad={
   x=63,
@@ -111,7 +216,14 @@ function init_dad(x,y)
  }
  return dad
 end
+
 -->8
+-- utils
+
+function easein(i)
+ return i*i*i--1-cos((i*3.14)/2)
+end
+
 function vtoward(x1,y1,x2,y2)
  local vx,vy=x1-x2,y1-y2
  local len=sqrt(vx^2+vy^2)
@@ -119,6 +231,72 @@ function vtoward(x1,y1,x2,y2)
  vy/=len
  return vx,vy
 end
+
+
+function once(f)
+ local is_done = false
+ return function(val)
+  if not is_done then
+   is_done = true
+   f(val)
+  end
+ end
+end
+
+-->8
+-- flow
+
+flow = {}
+
+function flow.create(go)
+ local m = {}
+ m.go = go
+
+ function m.map(f)
+  local new_go = function(nxt, done)
+   m.go(nxt, function(x)
+    done(f(x))
+   end)
+  end
+  return flow.create(new_go)
+ end
+
+ function m.flatten()
+  local new_go = function(nxt, done)
+   m.go(nxt, function(n)
+    n.go(nxt, done)
+   end)
+  end
+  return flow.create(new_go)
+ end
+
+ function m.flatmap(f)
+  return m.map(f).flatten()
+ end
+ 
+ function m.andthen(scn)
+  return m.flatmap(function() return scn end)
+ end
+ 
+ return m
+end
+
+function flow.scene(make_scene, ...)
+ local args = pack(...)
+ local go = function(nxt, done)
+  local scene = make_scene(once(done), unpack(args))
+  nxt(scene)
+ end
+ return flow.create(go)
+end
+
+
+function flow.forever(scn)
+ return scn.flatmap(function()
+  return flow.forever(scn)
+ end)
+end
+
 -->8
 --beans
 function beans_init()
@@ -181,6 +359,7 @@ function beans_new(x,y,n,vx,vy)
  setmetatable(beans,beans_meta)
  return beans
 end
+
 -->8
 --targeting
 function target_init()
@@ -214,6 +393,7 @@ function target_new(x,y)
  setmetatable(t,target_meta)
  return t
 end
+
 -->8
 --camera
 
@@ -238,6 +418,7 @@ end
 function cam_draw()
  camera(cam.x,cam.y)
 end
+
 -->8
 --kids
 
