@@ -20,6 +20,7 @@ function _init()
 		flow.forever(
 			flow
 			.scene(title_scn)
+			.andthen(flow.scene(dialogue_scn))
 			.andthen(flow.scene(game_scn))
 			.flatmap(function(score)
 				return flow.scene(results_scn, score)
@@ -216,6 +217,42 @@ function game_scn(nxt)
 		s.score+=1
 		local p=particle_new(b.x,b.y)
 		add(s.particles, p)
+	end
+
+	return scn
+end
+
+
+function dialogue_scn(nxt)
+	local scn={
+		t=0,
+		particles={},
+	}
+
+	local dialogue_flow = flow.scene(dialogue_box, "hi friends")
+		.andthen(flow.scene(dialogue_box, "welcome to せつbun"))
+	local dialogue=nil
+	dialogue_flow.go(
+		-- next dialogue box
+		function(nxt)
+			dialogue = nxt
+		end,
+		-- end scene
+		nxt
+	)
+
+	cam_init()
+	map_init()
+
+	function scn.update(s, dt)
+		dialogue:update(dt)
+	end
+	
+	function scn.draw(s)
+		cls()
+		cam_draw()
+		map_draw()
+		dialogue:draw()
 	end
 
 	return scn
@@ -663,6 +700,54 @@ end
 
 function boxfill(x,y,w,h,col)
 	rectfill(x,y,x+w,y+h,col)
+end
+
+-- dialogue
+textspeed=20 --characters per second
+
+function dialogue_box(nxt, text)
+	local dialogue = {
+		t=0,
+		duration=#text/textspeed,
+		text="",
+		is_done=false,
+	}
+	
+	function dialogue.update(d,dt)
+		d.t+=dt
+		local num_chars=flr(#text*d.t/d.duration)
+		d.text=sub(text,1,num_chars)
+		-- skip to end of text
+		if btnp(🅾️) or btnp(❎) then
+			d.t=d.duration
+		end
+		-- go to next if text is done scrolling
+		if d.is_done and btnp(❎) then
+			nxt(nil)
+		end
+		if d.t>=d.duration then d.is_done=true end
+	end
+	
+	function dialogue.draw(d)
+		camera()
+		local x,y=2,92
+		local w,h=123,32
+		-- background for us to draw on top of
+		boxfill(x,y,w,h, palette.bg)
+		box(x,y,w,h, palette.border)
+		-- draw the text
+		x+=4
+		y+=4
+		print(d.text,x,y)
+		-- draw button hint
+		if d.is_done then
+			x=128-12
+			y=128-12
+			print("❎",x,y)
+		end
+	end
+
+	return dialogue
 end
 __gfx__
 0000000000007700007700000000000070777707777777770000000000000000ffffff94b3bf9ff9ff9ff9ffffffffffffffffffffffffff0000000000000000
