@@ -120,6 +120,7 @@ function game_scn(nxt)
  dad=init_dad(63,63)
  
  cam_init()
+ map_init()
  target_init()
  kids_init()
  add(kids.group,kids_new(32,32))
@@ -170,13 +171,13 @@ function game_scn(nxt)
  function scn.draw()
   cls()
   cam_draw()
-  -- target demo
-  -- tar:draw()
-  -- if debug then
-  --  circ(40,80,3,8)
-  --  print("throw from here",10,85,6)
-  -- end
-  map(0,0,0,0,32,32)
+  map_draw()
+ -- target demo
+ -- tar:draw()
+ -- if debug then
+ --  circ(40,80,3,8)
+ --  print("throw from here",10,85,6)
+ -- end
   dad:draw()
     
   kids_draw()
@@ -218,10 +219,14 @@ function init_dad(x,y)
 end
 
 -->8
--- utils
+--math
 
 function easein(i)
  return i*i*i--1-cos((i*3.14)/2)
+end
+
+function dist(x1,y1,x2,y2)
+ return sqrt((x2-x1)^2+(y2-y1)^2)
 end
 
 function vtoward(x1,y1,x2,y2)
@@ -232,6 +237,8 @@ function vtoward(x1,y1,x2,y2)
  return vx,vy
 end
 
+-->8
+-- flow
 
 function once(f)
  local is_done = false
@@ -242,9 +249,6 @@ function once(f)
   end
  end
 end
-
--->8
--- flow
 
 flow = {}
 
@@ -395,7 +399,20 @@ function target_new(x,y)
 end
 
 -->8
---camera
+--camera and map
+
+function map_init()
+ mapinfo={
+  minx=0,
+  maxx=32,
+  miny=0,
+  maxy=16,
+ }
+end
+
+function map_draw()
+ map(mapinfo.minx,mapinfo.miny,0,0,mapinfo.maxx,mapinfo.maxy)
+end
 
 function cam_init()
  cam={
@@ -443,6 +460,15 @@ function kids_init()
    else
     k.target:update(dt)
    end
+   
+   if not k.nextx or dist(k.x,k.y,k.nextx,k.nexty)<=8 then
+    k.nextx=8*(rnd(mapinfo.maxx-mapinfo.minx)+mapinfo.minx)
+    k.nexty=8*(rnd(mapinfo.maxy-mapinfo.miny)+mapinfo.miny)
+   else
+    local vx,vy=vtoward(k.nextx,k.nexty,k.x,k.y)
+    k.x+=vx*dt*k.spd
+    k.y+=vy*dt*k.spd
+   end
   end,
   draw=function(k)
    sspr(8,0,16,24,k.x,k.y,8,16)
@@ -455,7 +481,12 @@ function kids_init()
 end
 
 function kids_new(x,y)
- local k={x=x,y=y,targettime=0}
+ local k={
+  x=x,
+  y=y,
+  targettime=0,
+  spd=20,
+ }
  setmetatable(k,kids_meta)
  return k
 end
