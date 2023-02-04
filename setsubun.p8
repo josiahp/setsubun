@@ -166,7 +166,7 @@ function game_scn(nxt)
   --beans:update(dt)
     
   for k,v in pairs(beangroups) do
-   v:update(dt)
+   v:update(dt,scn)
   end
  
   s.t += dt
@@ -327,8 +327,12 @@ end
 --beans
 function beans_init()
  beans_proto={
-  update=function(b,dt)
+  update=function(b,dt,scn)
    for k,v in pairs(b.group) do
+    if time()-v.createdat>10 then
+     del(b.group,v)
+    end
+    
     local maxy=mapinfo.char_maxy
     local minx=mapinfo.char_minx
     local maxx=mapinfo.char_maxx
@@ -338,11 +342,27 @@ function beans_init()
 	    v.vy+=gravity*dt
 	   end
    
+    --collide with floor
     if v.y+v.vy*dt>=maxy then
+     v.collided=true
      v.vy*=-1
     end
+    --collide with wall
     if v.x+v.vx*dt<=minx or v.x+v.vx*dt>=maxx then
+     v.collided=true
      v.vx*=-1
+    end
+    
+    --collide with dad
+    if not v.collided
+     and v.x+v.vx*dt>=dad.x-8
+     and v.x+v.vx*dt<=dad.x+8
+     and v.y+v.vy*dt>=dad.y-12
+     and v.y+v.vy*dt<=dad.y+12
+     then
+     v.vx*=-1
+     scn.score+=1
+     v.collided=true
     end
     
     --add drag to reduce
@@ -380,13 +400,14 @@ function beans_new(x,y,n,vx,vy)
  for n=1,n do
   add(beans.group,{
    x=x+rnd(10)-5,
-   y=y+rnd(10)-5,
+   y=y-rnd(10),
    
    -- initial bean velocity
    vx=vx*8,
-   vy=vy*8,
+   vy=vy*8-rnd(10)-5,
    
    grounded=false,
+   createdat=time()+rnd(3),
   })
  end
  setmetatable(beans,beans_meta)
@@ -594,7 +615,7 @@ function hud_draw(remaining_time,score)
  print("score",x,y,palette.fg)
  
  x+=24
- print("100",x,y,palette.fg)
+ print(score,x,y,palette.fg)
 end
 
 function box(x,y,w,h,col)
