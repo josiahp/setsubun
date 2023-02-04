@@ -2,6 +2,8 @@ pico-8 cartridge // http://www.pico-8.com
 version 39
 __lua__
 function _init()
+ debug=true
+ 
  t=time()
  --dad is 24 pixels tall, so
  -- 1.5m == 24px
@@ -10,7 +12,7 @@ function _init()
  dt=0
  drag=0.1
  --dad=init_dad(63,63)
- --beans_init()
+ beans_init()
  --bg=beans_new(63,63,5)
  target_init()
  
@@ -24,16 +26,45 @@ function _update()
  
  tar:update(dt)
  
+ if btn(⬆️) then
+  tar.basey-=2
+ elseif btn(⬇️) then
+  tar.basey+=2
+ end
+ 
+ if btn(⬅️) then
+  tar.basex-=2
+ elseif btn(➡️) then
+  tar.basex+=2
+ end
+ 
+ --debug throw beans
+ if debug then
+	 if btnp(❎) then
+	  local vx,vy=vtoward(tar.x,tar.y,40,80)
+	  bg=beans_new(40,80,5,vx,vy)
+	 end
+	end
+ 
  --dad:update(dt)
  --beans:update(dt)
- --bg:update(dt)
+ 
+ if bg then
+  bg:update(dt)
+ end
 end
 
 function _draw()
  cls()
  tar:draw()
+ if debug then
+  circ(40,80,3,8)
+  print("throw from here",10,85,6)
+ end
  --dad:draw()
- --bg:draw()
+ if bg then
+  bg:draw()
+ end
 end
 -->8
 --dad
@@ -60,7 +91,13 @@ function init_dad(x,y)
  return dad
 end
 -->8
-
+function vtoward(x1,y1,x2,y2)
+ local vx,vy=x1-x2,y1-y2
+ local len=sqrt(vx^2+vy^2)
+ vx/=len
+ vy/=len
+ return vx,vy
+end
 -->8
 --beans
 function beans_init()
@@ -76,9 +113,15 @@ function beans_init()
      v.vy*=-1
     end
     
+    --add drag to reduce
+    -- velocity over time
     v.vx*=1-drag
     v.vy*=1-drag
     
+    --if the bean is close to
+    -- to the ground and low
+    -- velocity, lets stop
+    -- the physics
     if abs(v.vy)<1 and abs(127-v.y+v.vy)<5 then
      v.y=127
      v.vy=0
@@ -98,7 +141,7 @@ function beans_init()
  beans_meta={__index=beans_proto}
 end
 
-function beans_new(x,y,n)
+function beans_new(x,y,n,vx,vy)
  local beans={
   group={},
  }
@@ -106,8 +149,11 @@ function beans_new(x,y,n)
   add(beans.group,{
    x=x+rnd(10)-5,
    y=y+rnd(10)-5,
-   vx=rnd(3)+3,
-   vy=-rnd(5)-4,
+   
+   -- initial bean velocity
+   vx=vx*8,
+   vy=vy*8,
+   
    grounded=false,
   })
  end
@@ -119,18 +165,31 @@ end
 function target_init()
  target_proto={
   update=function(t,dt)
-   t.txo=cos(time())*5
+   t.txo=cos(time())*20
    t.tyo=sin(time())*5
+   
+   t.x=t.basex+t.txo
+   t.y=t.basey+t.tyo
   end,
   draw=function(t)
-   spr(4,t.x+t.txo,t.y+t.tyo)
+   spr(4,t.x-4,t.y-4)
   end,
  }
  target_meta={__index=target_proto}
 end
 
 function target_new(x,y)
- local t={x=x,y=y,txo=0,tyo=0}
+ local t={
+  --these are calculcated from
+  --base+offset (basex+txo)
+  x=x,
+  y=y,
+  
+  basex=x,
+  basey=y,
+  txo=0,
+  tyo=0
+ }
  setmetatable(t,target_meta)
  return t
 end
