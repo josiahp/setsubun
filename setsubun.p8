@@ -118,6 +118,7 @@ function game_scn(nxt)
 	local scn={
 		t=0,
 		score=0,
+		particles={},
 	}
 
 	--dad is 24 pixels tall, so
@@ -131,6 +132,7 @@ function game_scn(nxt)
 	kids_init()
 	add(kids.group,kids_new(32,100))
 	beans_init()
+	particles_init()
 
 	beangroups={}
 	--bg=beans_new(63,63,5)
@@ -167,6 +169,14 @@ function game_scn(nxt)
 			v:update(dt,scn)
 		end
 		
+		for k,v in pairs(s.particles) do
+			v:update(dt)
+			-- cleanup particles past their lifetime
+			if v.is_done then
+				del(s.particles,v)
+			end
+		end
+		
 		s.t += dt
 		if s.t > game_time then
 			nxt(s.score)
@@ -188,6 +198,9 @@ function game_scn(nxt)
 		for k,v in pairs(beangroups) do
 			v:draw()
 		end
+		for k,v in pairs(s.particles) do
+			v:draw()
+		end
 
 		if debug then
 			print(cam.x,cam.x+4,cam.y+4,8)
@@ -197,6 +210,12 @@ function game_scn(nxt)
 		
 		local remaining_time=game_time-scn.t
 		hud_draw(remaining_time,s.score)
+	end
+
+	function scn.get_bean(s,b)
+		s.score+=1
+		local p=particle_new(b.x,b.y)
+		add(s.particles, p)
 	end
 
 	return scn
@@ -350,8 +369,8 @@ function beans_init()
 				 and v.y+v.vy*dt<=dad.y+12
 				then
 					v.vx*=-1
-					scn.score+=1
 					v.collided=true
+					scn:get_bean(v)
 				end
 				
 				--add drag to reduce
@@ -400,6 +419,34 @@ function beans_new(x,y,n,vx,vy)
 	end
 	setmetatable(beans,beans_meta)
 	return beans
+end
+
+--particles
+function particles_init()
+	particles_proto={
+		update=function(p,dt)
+			p.r-=4*dt
+			if p.r<=0 then
+				p.is_done=true
+			end
+		end,
+		draw=function(p)
+			circfill(p.x,p.y,p.r,7)
+			circ(p.x,p.y,p.r,6)
+		end,
+	}
+	particles_meta={__index=particles_proto}
+end
+
+function particle_new(x,y)
+	local particle={
+		x=x,
+		y=y,
+		r=4,
+		is_done=false,
+	}
+	setmetatable(particle,particles_meta)
+	return particle
 end
 
 -->8
