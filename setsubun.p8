@@ -72,7 +72,7 @@ function credits_scn(nxt)
 	function scn.draw()
 		cls(1)
 		color(7)
-		print("a game by:",50,60)
+		print("a game by:",44,60)
 		print("josiah, honamiさん, and matt",10,70)
 	end
 
@@ -273,7 +273,7 @@ end
 function game_scn(nxt)
 	local scn={
 		t=0,
-		score=20,
+		score=0,
 		particles={},
 	}
 
