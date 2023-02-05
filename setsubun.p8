@@ -172,8 +172,15 @@ function game_scn(nxt)
 	map_init()
 	target_init()
 	kids_init()
+<<<<<<< Updated upstream
 	add(kids.group,kids_new(32,80))
 	add(kids.group,kids_new(96,80))
+=======
+	barks_init()
+	add(kids.group,kids_new(32,100))
+	add(kids.group,kids_new(96,100))
+
+>>>>>>> Stashed changes
 	beans_init()
 	particles_init()
 
@@ -211,6 +218,7 @@ function game_scn(nxt)
 		dad:update(dt)
 		cam_update(dt)
 		kids_update(dt)
+		barks_update(dt)
 		--beans:update(dt)
 		for k,v in pairs(beangroups) do
 			v:update(dt,scn)
@@ -242,6 +250,7 @@ function game_scn(nxt)
 		-- end
 		dad:draw() 
 		kids_draw()
+		barks_draw()
 		for k,v in pairs(beangroups) do
 			v:draw()
 		end
@@ -811,6 +820,7 @@ function kids_init()
 			 
 			 --throw target
 			 if k.target.age>=k.target.ttl then
+					barks_new("おにはそと!",k.x,k.y-10,3)
 					local vx,vy=vtoward(k.target.x,k.target.y,k.x,k.y)
 					bg=beans_new(k.x,k.y,5,vx,vy)
 					add(beangroups,bg)
@@ -989,6 +999,47 @@ function dialogue_box(nxt, text, extradraw)
 	end
 
 	return dialogue
+end
+-->8
+function barks_init()
+ barks={}
+ barks_proto={
+  update=function(b,dt)
+   b.age+=dt
+   b.y-=20*dt
+   if b.age>=b.ttl then
+    del(barks,b)
+   end
+  end,
+  draw=function(b)
+   print(b.txt,b.x,b.y,7)
+  end,
+ }
+ barks_meta={__index=barks_proto}
+end
+
+function barks_new(txt,x,y,ttl)
+ local b={
+  x=x,
+  y=y,
+  txt=txt,
+  ttl=ttl,
+  age=0,
+ }
+ setmetatable(b,barks_meta)
+ return add(barks,b)
+end
+
+function barks_update(dt)
+ for k,v in pairs(barks) do
+  v:update(dt)
+ end
+end
+
+function barks_draw()
+ for k,v in pairs(barks) do
+  v:draw()
+ end
 end
 __gfx__
 0000000000007700007700000000000070777707777777770000000000000000ffffff94b3bf9ff9ff9ff9ffffffffffffffffffffffffff0000000000000000
