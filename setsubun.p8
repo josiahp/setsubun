@@ -419,6 +419,7 @@ function init_dad(x,y)
 		cooldown_duration=0.5,
 		cooldown_timer=0,
 		state="walking",
+		direction=➡️,
 		start_diving=function(d)
 			d.state="diving"
 			d.dive_timer=0
@@ -449,9 +450,9 @@ function init_dad(x,y)
 			d:move(vx,vy)
 			-- switch to diving
 			if btn(⬅️) then
-				d.direction="⬅️"
+				d.direction=⬅️
 			elseif btn(➡️) then
-				d.direction="➡️"
+				d.direction=➡️
 			end
 			if btnp(❎) then
 				d:start_diving()
@@ -460,9 +461,9 @@ function init_dad(x,y)
 		end,
 		update_diving=function(d,dt)
 			local vx,vy=0,0
-			if d.direction == "⬅️" then
+			if d.direction == ⬅️ then
 				vx-=d.dive_spd
-			elseif d.direction == "➡️" then
+			elseif d.direction == ➡️ then
 				vx+=d.dive_spd
 			end
 			d:move(vx,vy)
@@ -481,9 +482,9 @@ function init_dad(x,y)
 		end,
 		update_diving=function(d,dt)
 			local vx,vy=0,0
-			if d.direction == "⬅️" then
+			if d.direction==⬅️ then
 				vx-=d.dive_spd
-			elseif d.direction == "➡️" then
+			elseif d.direction==➡️ then
 				vx+=d.dive_spd
 			end
 			d:move(vx,vy)
@@ -499,22 +500,19 @@ function init_dad(x,y)
 		end,
 		draw=function(d)
 			local fac=0
-			local rot=0
 			if d.state=="diving" then
 				fac=d.dive_timer/d.dive_duration
 			elseif d.state=="cooldown" then
 				fac=1
 			end
-			if d.direction=="⬅️" then
-				rot=-0.25*fac
-			elseif d.direction=="➡️" then
-				rot=0.25*fac
-			end
-			local mask_x,mask_y=rotate(rot,0,-2)
+			local rot=0.25*fac
+			local flip=d.direction==⬅️
 			-- dad sprite
-			pd_rotate(d.x,d.y,rot,5.5,61,3)
+			pd_rotate(d.x,d.y,rot,5.5,61,3,flip)
 			--dad's mask
-			pd_rotate(d.x+mask_x,d.y+mask_y,rot,2,63,1)
+			local sign=flip and -1 or 1
+			local mask_x,mask_y=rotate(sign*rot,0,-2)
+			pd_rotate(d.x+mask_x,d.y+mask_y,rot,2,63,1,flip)
 		end,
 	}
 	return dad
@@ -868,9 +866,9 @@ function kids_init()
 	kids_proto={
 	update=function(k,dt)
 		k.targettime=max(0,k.targettime-dt)
-
-  if k.state=="target" then
-	  --get target
+		
+		if k.state=="target" then
+			--get target
 			if not k.target then
 				k.target=target_new(
 				 k.x+rnd(60)-30,
