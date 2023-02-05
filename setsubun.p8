@@ -323,8 +323,9 @@ function game_scn(nxt)
 		cls()
 		cam_draw()
 		map_draw()
+		kids_draw("before",dad.y)
 		dad:draw() 
-		kids_draw()
+		kids_draw("after",dad.y)
 		for k,v in pairs(beangroups) do
 			v:draw()
 		end
@@ -931,7 +932,12 @@ function kids_init()
 			
 	end,
 	
-	draw=function(k)
+	draw=function(k,layer,dad_y)
+	 if layer=="before" and k.y-6>dad_y then
+   return
+  elseif layer=="after" and k.y-6<=dad_y then
+   return
+  end
 		local flip=k.direction==⬅️
 		if k.target then
 			flip=k.target.x>k.x
@@ -963,9 +969,9 @@ function kids_update(dt)
 	end
 end
 
-function kids_draw(dt)
+function kids_draw(dt,layer,dad_y)
 	for k,v in pairs(kids.group) do
-		v:draw(dt)
+		v:draw(dt,layer,dad_y)
 	end
 end
 -->8
