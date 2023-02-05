@@ -12,7 +12,7 @@ function _init()
 	drag=0.1
 
 	scn=nil
-	game_time=2 -- seconds
+	game_time=25 -- seconds
 
 	game_flow = flow.scene(credits_scn)
 	.andthen(
@@ -1065,6 +1065,7 @@ function dialogue_box(nxt, text, extradraw)
 	return dialogue
 end
 -->8
+--barks
 function barks_init()
  barks={}
  barks_proto={
@@ -1076,7 +1077,10 @@ function barks_init()
    end
   end,
   draw=function(b)
-   print(b.txt,b.x,b.y,7)
+   print(b.txt,b.x,b.y+1,6)
+   print(b.txt,b.x-1,b.y+1,6)
+
+   print(b.txt,b.x,b.y,5)
   end,
  }
  barks_meta={__index=barks_proto}
