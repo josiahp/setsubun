@@ -94,8 +94,15 @@ function title_scn(nxt)
 	function scn.draw(s)
 		cls(1)
 		color(7)
-		print("せつbun", 49, 48)
-		print("press ❎ to start", 32, 60)
+		local title="\^w\^t".."せつbun"
+		local x,y=36,48
+		for xx=-1,1,1 do
+			for yy=-1,1,1 do
+				print(title,x+xx,y+yy,13)
+			end
+		end
+		print(title, 36, 48,7)
+		print("press ❎ to start", 32, 72)
 	end
 
 	return scn
