@@ -269,10 +269,16 @@ function init_dad(x,y)
 		dive_spd=150,
 		dive_duration=0.2,
 		dive_timer=0,
+		cooldown_duration=0.5,
+		cooldown_timer=0,
 		state="walking",
 		start_diving=function(d)
 			d.state="diving"
-			d.dive_timer=d.dive_duration
+			d.dive_timer=0
+		end,
+		start_cooldown=function(d)
+			d.state="cooldown"
+			d.cooldown_timer=0
 		end,
 		start_walking=function(d)
 			d.state="walking"
@@ -282,6 +288,8 @@ function init_dad(x,y)
 				d:update_walking(dt)
 			elseif d.state == "diving" then
 				d:update_diving(dt)
+			elseif d.state == "cooldown" then
+				d:update_cooldown(dt)
 			end
 		end,
 		update_walking=function(d,dt)
@@ -311,10 +319,31 @@ function init_dad(x,y)
 				vx+=d.dive_spd
 			end
 			d:move(vx,vy)
+			-- switch to cooldown
+			d.dive_timer+=dt
+			if d.dive_timer >= d.dive_duration then
+				d:start_cooldown()
+			end
+		end,
+		update_cooldown=function(d,dt)
 			-- switch back to walking
-			d.dive_timer-=dt
-			if d.dive_timer <= 0 then
+			d.cooldown_timer+=dt
+			if d.cooldown_timer >= d.cooldown_duration then
 				d:start_walking()
+			end
+		end,
+		update_diving=function(d,dt)
+			local vx,vy=0,0
+			if d.direction == "⬅️" then
+				vx-=d.dive_spd
+			elseif d.direction == "➡️" then
+				vx+=d.dive_spd
+			end
+			d:move(vx,vy)
+			-- switch back to walking
+			d.dive_timer+=dt
+			if d.dive_timer >= d.dive_duration then
+				d:start_cooldown()
 			end
 		end,
 		move=function(d,vx,vy)
@@ -322,13 +351,17 @@ function init_dad(x,y)
 			d.y+=vy*dt
 		end,
 		draw=function(d)
+			local fac=0
 			local rot=0
 			if d.state=="diving" then
-			 if d.direction=="⬅️" then
-			  rot=-0.25
-			 elseif d.direction=="➡️" then
-			  rot=0.25
-			 end
+				fac=d.dive_timer/d.dive_duration
+			elseif d.state=="cooldown" then
+				fac=1
+			end
+			if d.direction=="⬅️" then
+				rot=-0.25*fac
+			elseif d.direction=="➡️" then
+				rot=0.25*fac
 			end
 			local mask_x,mask_y=rotate(rot,0,-2)
 			-- dad sprite
@@ -345,6 +378,10 @@ end
 
 function easein(i)
 	return i*i*i--1-cos((i*3.14)/2)
+end
+
+function easeout(i)
+ return 1-(1-i)^3
 end
 
 function dist(x1,y1,x2,y2)
