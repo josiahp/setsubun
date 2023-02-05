@@ -238,8 +238,7 @@ function results_scn(nxt, score)
 		color(7)
 		
 		if s.result then
-		 local x=49
-		 x=63-#s.result.params*8
+		 x=64-#s.result.params*8
 		 for k,v in pairs(s.result.params) do
 		  local sx,sy=unpack(v)
 		  sspr(sx,sy,8,8,x,32,16,16)
@@ -715,7 +714,7 @@ function beans_new(x,y,n,vx,vy)
 			y=y-rnd(10),
 			
 			-- initial bean velocity
-			vx=vx*8,
+			vx=vx*8+rnd(6)-3,
 			vy=vy*8-10,
 			grounded=false,
 			createdat=time()+rnd(3),
