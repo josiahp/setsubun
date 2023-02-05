@@ -247,7 +247,7 @@ function results_scn(nxt, score)
 		
 		if s.result then
 		 x=64-#s.result.params*8
-		 for k,v in pairs(s.result.params) do
+		 for k,v in ipairs(s.result.params) do
 		  local sx,sy=unpack(v)
 		  sspr(sx,sy,8,8,x,32,16,16)
 		  x+=17
