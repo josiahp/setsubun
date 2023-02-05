@@ -132,6 +132,8 @@ function game_scn(nxt)
 	target_init()
 	kids_init()
 	add(kids.group,kids_new(32,100))
+	add(kids.group,kids_new(96,100))
+
 	beans_init()
 	particles_init()
 
@@ -231,63 +233,8 @@ function dialogue_scn(nxt)
 
 	local dialogue_flow = 
 	 flow.scene(dialogue_box,
-	  "せつふ゛んはむかし、\n"..
-	  "いちねんのいちは゛んはし゛まり\n"..
-	  "のひた゛ったんた゛よ。"
+	  "おとん、せつふ゛んはな-に?"
 	 ).andthen(
-		flow.scene(dialogue_box, 
-		 "むかしのひとはいちねんの\n"..
-		 "はし゛まりに、「よいことか゛\n"..
-		 "ありますように」とまめを\n"..
-		 "まいておいのりしてたんた゛って。"
-		).andthen(
-		flow.scene(dialogue_box, 
-		 "むかしからつふ゛んのひに\n"..
-		 "「おうちにわるいものか゛はいって\n"..
-		 "くる」といわれてる、まめを\n"..
-		 "つかっておいはらってるんた゛よ。"
-		).andthen(
-		flow.scene(dialogue_box,
-		 "まめはわるいものをやっつけて\n"..
-		 "くれるんた゛って。すこ゛いね。\n"..
-		 "「まめ」はからた゛か゛け゛んきという\n"..
-		 "いみもあるんた゛って。\n"
-		)))
-	)
-	local dialogue=nil
-	dialogue_flow.go(
-		-- next dialogue box
-		function(nxt)
-			dialogue = nxt
-		end,
-		-- end scene
-		nxt
-	)
-
-	cam_init()
-	map_init()
-
-	function scn.update(s, dt)
-		dialogue:update(dt)
-	end
-	
-	function scn.draw(s)
-		cls()
-		cam_draw()
-		map_draw()
-		dialogue:draw()
-	end
-
-	return scn
-end
-
-function dialogue_scn(nxt)
-	local scn={
-		t=0,
-		particles={},
-	}
-
-	local dialogue_flow = 
 	 flow.scene(dialogue_box,
 	  "せつふ゛んはむかし、\n"..
 	  "いちねんのいちは゛んはし゛まり\n"..
@@ -310,7 +257,7 @@ function dialogue_scn(nxt)
 		 "くれるんた゛って。すこ゛いね。\n"..
 		 "「まめ」はからた゛か゛け゛んきという\n"..
 		 "いみもあるんた゛って。\n"
-		)))
+		))))
 	)
 	local dialogue=nil
 	dialogue_flow.go(
@@ -323,7 +270,6 @@ function dialogue_scn(nxt)
 	)
 
 	cam_init()
-	map_init()
 
 	function scn.update(s, dt)
 		dialogue:update(dt)
@@ -332,7 +278,6 @@ function dialogue_scn(nxt)
 	function scn.draw(s)
 		cls()
 		cam_draw()
-		map_draw()
 		dialogue:draw()
 	end
 
@@ -646,20 +591,34 @@ end
 function target_init()
 	target_proto={
 		update=function(t,dt)
-			t.txo=cos(time())*20
-			t.tyo=sin(time())*5
+		 t.age+=dt
+		 
+		 --stop moving target before
+		 --ttl
+		 if t.age/t.ttl<0.8 then
+			 t.txo=cos(time()/2)*20
+			 t.tyo=sin(time()/2)*5
+			end
 			
 			t.x=t.basex+t.txo
 			t.y=t.basey+t.tyo
 		end,
 		draw=function(t)
+		 local tcolor=7
+		 if t.age/t.ttl>0.8 then
+		  tcolor=8
+		 elseif t.age/t.ttl>0.5 then
+		  tcolor=14
+		 end
+		 pal(7,tcolor)
 			spr(4,t.x-4,t.y-4)
+			pal(7,7)
 		end,
 	}
 	target_meta={__index=target_proto}
 end
 
-function target_new(x,y)
+function target_new(x,y,ttl)
 	local t={
 		--these are calculcated from
 		--base+offset (basex+txo)
@@ -668,7 +627,9 @@ function target_new(x,y)
 		basex=x,
 		basey=y,
 		txo=0,
-		tyo=0
+		tyo=0,
+		ttl=ttl,
+		age=0,
 	}
 	setmetatable(t,target_meta)
 	return t
@@ -748,29 +709,50 @@ function kids_init()
 	update=function(k,dt)
 		k.targettime=max(0,k.targettime-dt)
 
-		if k.target and k.targettime==0 then
-			local vx,vy=vtoward(k.target.x,k.target.y,k.x,k.y)
-			bg=beans_new(k.x,k.y,5,vx,vy)
-			add(beangroups,bg)
-			k.target=nil
-		end
-
-		if not k.target then
-			k.target=target_new(dad.x,dad.y)
-			k.targettime=2
-		else
-			k.target:update(dt)
-		end
+  if k.state=="target" then
+	  --get target
+			if not k.target then
+				k.target=target_new(
+				 k.x+rnd(60)-30,
+				 dad.y+8,
+				 3
+				)
+				k.targettime=5
+			else
+			 k.target:update(dt)
+			 
+			 --throw target
+			 if k.target.age>=k.target.ttl then
+					local vx,vy=vtoward(k.target.x,k.target.y,k.x,k.y)
+					bg=beans_new(k.x,k.y,5,vx,vy)
+					add(beangroups,bg)
+					k.target=nil
+					k.state="move"
+				end
+			end
+		elseif k.state=="move" then
 		
-		if not k.nextx or dist(k.x,k.y,k.nextx,k.nexty)<=8 then
-			k.nextx=rnd(mapinfo.char_maxx-mapinfo.char_minx)+mapinfo.char_minx
-			k.nexty=rnd(mapinfo.char_maxy-mapinfo.char_miny)+mapinfo.char_miny
-		else
-			local vx,vy=vtoward(k.nextx,k.nexty,k.x,k.y)
-			k.x+=vx*dt*k.spd
-			k.y+=vy*dt*k.spd
+			--kid movement
+
+   --get pos
+			if not k.nextx then
+				k.nextx=rnd(mapinfo.char_maxx-mapinfo.char_minx)+mapinfo.char_minx
+				k.nexty=rnd(mapinfo.char_maxy-mapinfo.char_miny)+mapinfo.char_miny
+			elseif dist(k.x,k.y,k.nextx,k.nexty)<=8 then
+    --reached pos
+    k.nextx=nil
+    k.state="target"
+			else
+			 --move
+				local vx,vy=vtoward(k.nextx,k.nexty,k.x,k.y)
+				k.x+=vx*dt*k.spd
+				k.y+=vy*dt*k.spd
+			end
+			
 		end
+			
 	end,
+	
 	draw=function(k)
 		sspr(8,0,16,24,k.x-4,k.y-8,8,16)
 		if k.target then
@@ -786,7 +768,8 @@ function kids_new(x,y)
 		x=x,
 		y=y,
 		targettime=0,
-		spd=20,
+		spd=60,
+		state="move",
 	}
 	setmetatable(k,kids_meta)
 	return k
@@ -810,9 +793,10 @@ palette={
 	bg=5,
 	bg_alt=1,
 	fg=7,
-	border=7,
+	border=13,
 	accent=8,
 	transparent=7,
+	text=7,
 	-- sprites
 	ehomaki=1,
 }
@@ -860,7 +844,7 @@ end
 -- dialogue
 textspeed=20 --characters per second
 
-function dialogue_box(nxt, text)
+function dialogue_box(nxt, text, extradraw)
 	local dialogue = {
 		t=0,
 		duration=#text/textspeed,
@@ -885,20 +869,24 @@ function dialogue_box(nxt, text)
 	
 	function dialogue.draw(d)
 		camera()
-		local x,y=2,92
-		local w,h=123,34
+		local x,y=1,92
+		local w,h=125,34
 		-- background for us to draw on top of
 		boxfill(x,y,w,h, palette.bg)
 		box(x,y,w,h, palette.border)
 		-- draw the text
-		x+=4
-		y+=4
-		print(d.text,x,y)
+		x+=2
+		y+=2
+		print(d.text,x,y,palette.text)
 		-- draw button hint
 		if d.is_done then
 			x=128-12
 			y=128-8
 			print("❎",x,y)
+		end
+		
+		if extradraw then
+		 extradraw(d)
 		end
 	end
 
