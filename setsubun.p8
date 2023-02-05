@@ -12,7 +12,7 @@ function _init()
 	drag=0.1
 
 	scn=nil
-	game_time=100 -- seconds
+	game_time=30 -- seconds
 
 	game_flow = flow.scene(credits_scn)
 	.andthen(
@@ -229,8 +229,31 @@ function dialogue_scn(nxt)
 		particles={},
 	}
 
-	local dialogue_flow = flow.scene(dialogue_box, "hi friends")
-		.andthen(flow.scene(dialogue_box, "welcome to せつbun"))
+	local dialogue_flow = 
+	 flow.scene(dialogue_box,
+	  "せつふ゛んはむかし、\n"..
+	  "いちねんのいちは゛んはし゛まり\n"..
+	  "のひた゛ったんた゛よ。"
+	 ).andthen(
+		flow.scene(dialogue_box, 
+		 "むかしのひとはいちねんの\n"..
+		 "はし゛まりに、「よいことか゛\n"..
+		 "ありますように」とまめを\n"..
+		 "まいておいのりしてたんた゛って。"
+		).andthen(
+		flow.scene(dialogue_box, 
+		 "むかしからつふ゛んのひに\n"..
+		 "「おうちにわるいものか゛はいって\n"..
+		 "くる」といわれてる、まめを\n"..
+		 "つかっておいはらってるんた゛よ。"
+		).andthen(
+		flow.scene(dialogue_box,
+		 "まめはわるいものをやっつけて\n"..
+		 "くれるんた゛って。すこ゛いね。\n"..
+		 "「まめ」はからた゛か゛け゛んきという\n"..
+		 "いみもあるんた゛って。\n"
+		)))
+	)
 	local dialogue=nil
 	dialogue_flow.go(
 		-- next dialogue box
@@ -257,6 +280,65 @@ function dialogue_scn(nxt)
 
 	return scn
 end
+
+function dialogue_scn(nxt)
+	local scn={
+		t=0,
+		particles={},
+	}
+
+	local dialogue_flow = 
+	 flow.scene(dialogue_box,
+	  "せつふ゛んはむかし、\n"..
+	  "いちねんのいちは゛んはし゛まり\n"..
+	  "のひた゛ったんた゛よ。"
+	 ).andthen(
+		flow.scene(dialogue_box, 
+		 "むかしのひとはいちねんの\n"..
+		 "はし゛まりに、「よいことか゛\n"..
+		 "ありますように」とまめを\n"..
+		 "まいておいのりしてたんた゛って。"
+		).andthen(
+		flow.scene(dialogue_box, 
+		 "むかしからつふ゛んのひに\n"..
+		 "「おうちにわるいものか゛はいって\n"..
+		 "くる」といわれてる、まめを\n"..
+		 "つかっておいはらってるんた゛よ。"
+		).andthen(
+		flow.scene(dialogue_box,
+		 "まめはわるいものをやっつけて\n"..
+		 "くれるんた゛って。すこ゛いね。\n"..
+		 "「まめ」はからた゛か゛け゛んきという\n"..
+		 "いみもあるんた゛って。\n"
+		)))
+	)
+	local dialogue=nil
+	dialogue_flow.go(
+		-- next dialogue box
+		function(nxt)
+			dialogue = nxt
+		end,
+		-- end scene
+		nxt
+	)
+
+	cam_init()
+	map_init()
+
+	function scn.update(s, dt)
+		dialogue:update(dt)
+	end
+	
+	function scn.draw(s)
+		cls()
+		cam_draw()
+		map_draw()
+		dialogue:draw()
+	end
+
+	return scn
+end
+
 
 -->8
 --dad
@@ -851,7 +933,7 @@ function dialogue_box(nxt, text)
 	function dialogue.draw(d)
 		camera()
 		local x,y=2,92
-		local w,h=123,32
+		local w,h=123,34
 		-- background for us to draw on top of
 		boxfill(x,y,w,h, palette.bg)
 		box(x,y,w,h, palette.border)
@@ -862,7 +944,7 @@ function dialogue_box(nxt, text)
 		-- draw button hint
 		if d.is_done then
 			x=128-12
-			y=128-12
+			y=128-8
 			print("❎",x,y)
 		end
 	end
@@ -1014,3 +1096,5 @@ __map__
 0518000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050500000000000000000000000000
+__sfx__
+010500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
