@@ -864,6 +864,7 @@ function kids_init()
 		group={},
 	}
 	kids_proto={
+	direction=⬅️,
 	update=function(k,dt)
 		k.targettime=max(0,k.targettime-dt)
 		
@@ -891,20 +892,24 @@ function kids_init()
 		elseif k.state=="move" then
 		
 			--kid movement
-
-   --get pos
+			--get pos
 			if not k.nextx then
 				k.nextx=rnd(mapinfo.char_maxx-mapinfo.char_minx)+mapinfo.char_minx
 				k.nexty=rnd(mapinfo.char_maxy-mapinfo.char_miny)+mapinfo.char_miny
 			elseif dist(k.x,k.y,k.nextx,k.nexty)<=8 then
-    --reached pos
-    k.nextx=nil
-    k.state="target"
+				--reached pos
+				k.nextx=nil
+				k.state="target"
 			else
 			 --move
 				local vx,vy=vtoward(k.nextx,k.nexty,k.x,k.y)
 				k.x+=vx*dt*k.spd
 				k.y+=vy*dt*k.spd
+				if vx > 0 then
+					k.direction=⬅️
+				else
+					k.direction=➡️
+				end
 			end
 			
 		end
@@ -912,9 +917,13 @@ function kids_init()
 	end,
 	
 	draw=function(k)
-		spr(20,k.x-4,k.y-8,1,2)
+		local flip=k.direction==⬅️
 		if k.target then
-		k.target:draw()
+			flip=k.target.x>k.x
+		end
+		spr(20,k.x-4,k.y-8,1,2,flip)
+		if k.target then
+			k.target:draw()
 		end
 	end,
 	}
