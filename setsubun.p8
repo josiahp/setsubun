@@ -775,9 +775,10 @@ palette={
 function hud_draw(remaining_time,score)
 	camera()
 	local x,y=0,0
+	local w,h=128,16
 
 	-- background for us to draw on top of
-	boxfill(x,y, 128, 16, palette.bg)
+	boxfill(x,y,w,h, palette.bg)
 
 	x=2
 	y=2
@@ -786,8 +787,8 @@ function hud_draw(remaining_time,score)
 	print("time",x,y,palette.fg)
 
 	x+=24
-
-	local w,h=128-12-x,7
+ w,h=128-12-x,7
+ 
 	local fac=remaining_time/game_time
 	palt(palette.transparent,true)
 	spr(40,x,y-1)
@@ -802,6 +803,15 @@ function hud_draw(remaining_time,score)
 
 	x+=24
 	print(score,x,y,palette.fg)
+	
+	-- controls
+	x,y=0,128-8
+	w,h=128,8
+	
+	boxfill(x,y,w,h,palette.bg)
+	x+=2
+	y+=2
+	print("move: ⬅️➡️   dash: ❎",x,y,palette.fg)
 end
 
 function box(x,y,w,h,col)
