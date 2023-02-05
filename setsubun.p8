@@ -201,7 +201,7 @@ function results_scn(nxt, score)
   {
    name="daikyou",
    params={
-    {112,8},{120,0},
+    {120,0},{112,8},
    },
   }
  }
