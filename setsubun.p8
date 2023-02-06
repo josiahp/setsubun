@@ -275,7 +275,7 @@ function game_scn(nxt)
 		t=0,
 		score=0,
 		particles={},
-		beangroups={},
+		beans={},
 		kids={},
 		barks={},
 	}
@@ -298,8 +298,12 @@ function game_scn(nxt)
 		for k,v in pairs(s.kids) do
 			v:update(dt,scn)
 		end
-		for k,v in pairs(s.beangroups) do
+		for k,v in pairs(s.beans) do
 			v:update(dt,scn)
+			-- cleanup beans past their lifetime
+			if v.age>v.ttl then
+				del(s.beans,v)
+			end
 		end
 		for k,v in pairs(s.particles) do
 			v:update(dt)
@@ -335,7 +339,7 @@ function game_scn(nxt)
 			v:draw(dt,"after",dad.y)
 		end
 
-		for k,v in pairs(beangroups) do
+		for k,v in pairs(s.beans) do
 			v:draw()
 		end
 		for k,v in pairs(s.particles) do
@@ -358,8 +362,11 @@ function game_scn(nxt)
 		local p=particle_new(b.x,b.y)
 		add(s.particles, p)
 	end
-	function scn.add_beans(s,bg)
-		add(s.beangroups,bg)
+	function scn.add_beans(s,beans)
+		-- add all beans
+		for k,v in pairs(beans) do 
+			add(s.beans, v)
+		end
 	end
 	function scn.add_bark(s,bark)
 		add(s.barks,bark)
@@ -642,89 +649,92 @@ end
 
 -->8
 --beans, particles
-beans_proto={
-	update=function(b,dt,scn)
-		for k,v in pairs(b.group) do
-			if time()-v.createdat>10 then
-				del(b.group,v)
-			end
-			
-			local maxy=mapinfo.char_maxy
-			local minx=mapinfo.char_minx
-			local maxx=mapinfo.char_maxx
-			
-			if not v.grounded then
-				--gravity
-				v.vy+=gravity*dt
-			end
-			
-			--collide with floor
-			if v.y+v.vy*dt>=maxy then
-				v.collided=true
-				v.vy*=-1
-			end
-			--collide with wall
-			if v.x+v.vx*dt<=minx or v.x+v.vx*dt>=maxx then
-				v.collided=true
-				v.vx*=-1
-			end
-			
-			--collide with dad
-			if not v.collided
-			 and v.x+v.vx*dt>=dad.x-8
-			 and v.x+v.vx*dt<=dad.x+8
-			 and v.y+v.vy*dt>=dad.y-12
-			 and v.y+v.vy*dt<=dad.y+12
-			then
-				v.vx*=-1
-				v.collided=true
-				scn:bean_hit(v)
-			end
-			
-			--add drag to reduce
-			-- velocity over time
-			v.vx*=1-drag
-			v.vy*=1-drag
+bean_proto={
+	update=function(v,dt,scn)
+		v.age+=dt
+		
+		local maxy=mapinfo.char_maxy
+		local minx=mapinfo.char_minx
+		local maxx=mapinfo.char_maxx
+		
+		if not v.grounded then
+			--gravity
+			v.vy+=gravity*dt
+		end
+		
+		local x1,y1=v.x+v.vx,v.y+v.vy
+		--collide with floor
+		if y1>=maxy then
+			v.collided=true
+			v.vy*=-1
+		end
+		--collide with wall
+		if x1<=minx or x1>=maxx then
+			v.collided=true
+			v.vx*=-1
+		end
+		
+		--collide with dad
+		if not v.collided
+			and x1>=dad.x-8
+			and x1<=dad.x+8
+			and y1>=dad.y-12
+			and y1<=dad.y+12
+		then
+			v.vx*=-1
+			v.collided=true
+			scn:bean_hit(v)
+		end
+		
+		--add drag to reduce
+		-- velocity over time
+		v.vx*=1-drag
+		v.vy*=1-drag
 
-			--if the bean is close to
-			-- to the ground and low
-			-- velocity, lets stop
-			-- the physics
-			if abs(v.vy)<1 and abs(maxy-v.y+v.vy)<5 then
-				v.y=maxy
-				v.vy=0
-				v.grounded=true
-			end
-			
-			v.y+=v.vy
-			v.x+=v.vx
+		--if the bean is close to
+		-- to the ground and low
+		-- velocity, lets stop
+		-- the physics
+		if abs(v.vy)<1 and abs(maxy-v.y+v.vy)<5 then
+			v.y=maxy
+			v.vy=0
+			v.grounded=true
 		end
+		
+		v.y+=v.vy
+		v.x+=v.vx
 	end,
-	draw=function(b)
-		for k,v in pairs(b.group) do
-			spr(3,v.x-4,v.y-4)
-		end
+	draw=function(v)
+		spr(3,v.x-4,v.y-4)
 	end,
 }
-beans_meta={__index=beans_proto}
+bean_meta={__index=bean_proto}
+
+function bean_new(x,y,vx,vy)
+	local bean={
+		x=x,
+		y=y,
+		vx=vx,
+		vy=vy,
+		grounded=false,
+		ttl=10+rnd(3),
+		age=0,
+	}
+	setmetatable(bean,bean_meta)
+	return bean
+end
 
 function beans_new(x,y,n,vx,vy)
-	local beans={
-		group={},
-	}
+	local beans={}
 	for n=1,n do
-		add(beans.group,{
-			x=x+rnd(10)-5,
-			y=y-rnd(10),
-			
-			-- initial bean velocity
-			vx=vx*8+rnd(6)-3,
-			vy=vy*8-10,
-			grounded=false,
-			createdat=time()+rnd(3),
-		})
+		local bean=bean_new(
+			x+rnd(10)-5, --x
+			y-rnd(10), --y
+			vx*8+rnd(6)-3, --vx
+			vy*8-10 --vy
+		)
+		add(beans, bean)
 	end
-	setmetatable(beans,beans_meta)
 	return beans
 end
 
@@ -732,7 +742,6 @@ end
 particles_proto={
 	update=function(p,dt)
 		p.age+=dt
-		p.r-=4*dt
 		if p.age>=p.ttl then
 			p.is_done=true
 		end
@@ -955,13 +964,13 @@ function dialogue_box(nxt, text)
 		d.t+=dt
 		local num_chars=flr(#text*d.t/d.dur)
 		d.text=sub(text,1,num_chars)
-		-- skip to end of text
-		if btnp(🅾️) or btnp(❎) then
-			d.t=d.dur
-		end
 		-- go to next if text is done scrolling
 		if d.t>=d.dur and btnp(❎) then
 			nxt(nil)
+		end
+		-- skip to end of text
+		if btnp(🅾️) or btnp(❎) then
+			d.t=d.dur
 		end
 	end
 	
