@@ -300,6 +300,15 @@ function game_scn(nxt)
 		end
 		for k,v in pairs(s.beans) do
 			v:update(dt,scn)
+			--collide with dad
+			if not v.collided
+				and v.x>=dad.x-8
+				and v.x<=dad.x+8
+				and v.y>=dad.y-12
+				and v.y<=dad.y+12
+			then
+				s:bean_hit(v)
+			end
 			-- cleanup beans past their lifetime
 			if v.age>v.ttl then
 				del(s.beans,v)
@@ -359,6 +368,7 @@ function game_scn(nxt)
 
 	function scn.bean_hit(s,b)
 		s.score+=1
+		del(s.beans,b)
 		local p=particle_new(b.x,b.y)
 		add(s.particles, p)
 	end
@@ -672,18 +682,6 @@ bean_proto={
 		if x1<=minx or x1>=maxx then
 			v.collided=true
 			v.vx*=-1
-		end
-		
-		--collide with dad
-		if not v.collided
-			and x1>=dad.x-8
-			and x1<=dad.x+8
-			and y1>=dad.y-12
-			and y1<=dad.y+12
-		then
-			v.vx*=-1
-			v.collided=true
-			scn:bean_hit(v)
 		end
 		
 		--add drag to reduce
