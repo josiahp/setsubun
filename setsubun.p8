@@ -280,9 +280,9 @@ function game_scn(nxt)
 		barks={},
 	}
 
-	dad=dad_new(v2(63,80))
-	add(scn.kids, kids_new(v2(32,80),8))
-	add(scn.kids, kids_new(v2(96,80),12))
+	dad=dad_new(v3(63,0,14))
+	add(scn.kids, kids_new(v3(32,0,14),8))
+	add(scn.kids, kids_new(v3(96,0,14),12))
 
 	cam=cam_new()
 	map_init()
@@ -304,8 +304,8 @@ function game_scn(nxt)
 			if not v.collided
 				and v.pos.x>=dad.pos.x-8
 				and v.pos.x<=dad.pos.x+8
-				and v.pos.y>=dad.pos.y-12
-				and v.pos.y<=dad.pos.y+12
+				and v.pos.y>=dad.pos.y
+				and v.pos.y<=dad.pos.y+24
 			then
 				s:bean_hit(v)
 			end
@@ -340,17 +340,23 @@ function game_scn(nxt)
 		cam:draw()
 		map_draw()
 		
-		for k,v in pairs(s.kids) do
-			v:draw(dt,"before",dad.pos.y)
-		end
-		dad:draw()
-		for k,v in pairs(s.kids) do
-			v:draw(dt,"after",dad.pos.y)
+		local actors={}
+		add(actors,dad)
+		add_all(actors,s.kids)
+		add_all(actors,s.beans)
+		--scan through all possible depths
+		--draw kids+dad+beans sorted
+		--from back (+z) to front (-z)
+		local lo,hi=mapinfo.char_minz,mapinfo.char_maxz
+		for depth=hi,lo,-1 do
+		 for _,a in pairs(actors) do
+		  if a.pos.z>=depth then
+		   a:draw()
+		   del(actors,a)
+		  end
+		 end
 		end
 
-		for k,v in pairs(s.beans) do
-			v:draw()
-		end
 		for k,v in pairs(s.particles) do
 			v:draw()
 		end	
@@ -374,9 +380,7 @@ function game_scn(nxt)
 	end
 	function scn.add_beans(s,beans)
 		-- add all beans
-		for k,v in pairs(beans) do 
-			add(s.beans, v)
-		end
+		add_all(s.beans,beans)
 	end
 	function scn.add_bark(s,bark)
 		add(s.barks,bark)
@@ -467,7 +471,7 @@ dad_proto={
 		end
 	end,
 	update_walking=function(d,dt)
-		local v=v2(0,0)
+		local v=v3(0,0,0)
 		if btn(⬅️) then
 			v.x-=1
 		elseif btn(➡️) then
@@ -486,7 +490,7 @@ dad_proto={
 		end
 	end,
 	update_diving=function(d,dt)
-		local v=v2(0,0)
+		local v=v3(0,0,0)
 		if d.direction==⬅️ then
 			v.x-=1
 		elseif d.direction==➡️ then
@@ -508,7 +512,8 @@ dad_proto={
 	end,
 	move=function(d,v)
 		d.pos=d.pos+v
-		d.pos.x=mid(mapinfo.char_minx,d.pos.x,256)
+		d.pos.x=mid(mapinfo.char_minx,d.pos.x,mapinfo.char_maxx)
+		d.pos.z=mid(mapinfo.char_minz,d.pos.z,mapinfo.char_maxz)
 	end,
 	draw=function(d)
 		local fac=0
@@ -517,15 +522,16 @@ dad_proto={
 		elseif d.state=="cooldown" then
 			fac=1
 		end
-		local pos=d.pos
 		local rot=0.25*fac
 		local flip=d.direction==⬅️
+		local x,y=project(d.pos)
+		y-=12 --shift by half of height
 		-- dad sprite
-		pd_rotate(pos.x,pos.y,rot,5.5,61,3,flip)
+		pd_rotate(x,y,rot,5.5,61,3,flip)
 		--dad's mask
 		local sign=flip and -1 or 1
 		local mask_x,mask_y=rotate(sign*rot,0,-2)
-		pd_rotate(pos.x+mask_x,pos.y+mask_y,rot,2,63,1,flip)
+		pd_rotate(x+mask_x,y+mask_y,rot,2,63,1,flip)
 	end,
 }
 dad_meta={__index=dad_proto}
@@ -567,8 +573,9 @@ kids_proto={
 		--get target
 		if not k.target then
 			local x=k.pos.x+rnd(60)-30
-			local y=mapinfo.char_miny-8
-			k.target=target_new(x,y,rnd(1)+2)
+			local y=8
+			local z=14
+			k.target=target_new(v3(x,y,z),rnd(1)+2)
 		else
 			k.target:update(dt)
 			--throw target
@@ -582,9 +589,9 @@ kids_proto={
 		--kid movement
 		--get pos
 		if not k.next then
-			local x=rnd(mapinfo.char_maxx-mapinfo.char_minx)+mapinfo.char_minx
-			local y=rnd(mapinfo.char_maxy-mapinfo.char_miny)+mapinfo.char_miny
-			k.next=v2(x,y)
+			local x=rnd_btwn(mapinfo.char_minx, mapinfo.char_maxx)
+			local z=rnd_btwn(mapinfo.char_minz, mapinfo.char_maxz)
+			k.next=v3(x,0,z)
 		end
 		if (k.pos-k.next):len()<=8 then
 			--reached pos
@@ -593,7 +600,7 @@ kids_proto={
 			--move
 			local vel=vtoward(k.next,k.pos)
 			k.pos+=k.spd*dt*vel
-			if vel.x > 0 then
+			if vel.x>0 then
 				k.direction=⬅️
 			else
 				k.direction=➡️
@@ -601,26 +608,20 @@ kids_proto={
 		end
 	end,
 	throw_beans=function(k,scn)
-		local bark=barks_new("おにはそと!",k.pos-v2(0,10),2)
+		local bark=barks_new("おにはそと!",k.pos+v3(0,10,0),2)
 		scn:add_bark(bark)
 		local vel=vtoward(k.target.pos,k.pos)
-		local bg=beans_new(k.pos,3,vel)
+		local bg=beans_new(k.pos,vel,3)
 		scn:add_beans(bg)
 	end,
-	draw=function(k,layer,dad_y)
-		-- hack: sprite stacking order
-		if layer=="before" and k.y-6>dad_y then
-			return
-		elseif layer=="after" and k.y-6<=dad_y then
-			return
-		end
-		local pos=k.pos
+	draw=function(k)
+		local x,y=project(k.pos)
 		local flip=k.direction==⬅️
 		if k.target then
 			flip=k.target.pos.x>k.pos.x
 		end
 		pal(14,k.shirtcolor)
-		spr(20,pos.x-4,pos.y-8,1,2,flip)
+		spr(20,x-4,y-16,1,2,flip)
 		pal(14,14)
 		if k.target then
 			k.target:draw()
@@ -648,18 +649,17 @@ bean_proto={
 	update=function(b,dt,scn)
 		b.age+=dt
 		
-		local maxy=mapinfo.char_maxy
 		local minx=mapinfo.char_minx
 		local maxx=mapinfo.char_maxx
 		
 		if not b.grounded then
 			--gravity
-			b.vel.y+=gravity*dt
+			b.vel.y-=gravity*dt
 		end
 		
 		local x1,y1=(b.pos+b.vel):unpack()
 		--collide with floor
-		if y1>=maxy then
+		if y1<=0 then
 			b.collided=true
 			b.vel.y*=-1
 		end
@@ -677,8 +677,8 @@ bean_proto={
 		-- to the ground and low
 		-- velocity, lets stop
 		-- the physics
-		if abs(b.vel.y)<1 and abs(maxy-b.pos.y+b.vel.y)<5 then
-			b.pos.y=maxy
+		if abs(b.vel.y)<1 and abs(b.pos.y+b.vel.y)<5 then
+			b.pos.y=0
 			b.vel.y=0
 			b.grounded=true
 		end
@@ -686,7 +686,8 @@ bean_proto={
 		b.pos=b.pos+b.vel
 	end,
 	draw=function(b)
-		spr(3,b.pos.x-4,b.pos.y-4)
+		local x,y=project(b.pos)
+		spr(3,x-4,y-4)
 	end,
 }
 bean_meta={__index=bean_proto}
@@ -703,17 +704,19 @@ function bean_new(p,v)
 	return bean
 end
 
-function beans_new(p,n,v)
+function beans_new(p,v,n)
 	local beans={}
 	for n=1,n do
 		local bean=bean_new(
-			v2(
+			v3(
 				p.x+rnd(10)-5,
-				p.y-rnd(10)
+				p.y+rnd(10),
+				p.z
 			),
-			v2(
+			v3(
 				v.x*8+rnd(6)-3,
-				v.y*8-10
+				v.y*8+10,
+				v.z
 			)
 		)
 		add(beans, bean)
@@ -732,8 +735,9 @@ particles_proto={
 	draw=function(p)
 		local fac=p.age/p.ttl
 		local r=4*(1-fac)
-		circfill(p.pos.x,p.pos.y,r,7)
-		circ(p.pos.x,p.pos.y,r,6)
+		local x,y=project(p.pos)
+		circfill(x,y,r,7)
+		circ(x,y,r,6)
 	end,
 }
 particles_meta={__index=particles_proto}
@@ -758,9 +762,10 @@ target_proto={
 		--stop moving target before
 		--ttl
 		if t.age/t.ttl<0.8 then
-			local offset=v2(
+			local offset=v3(
 				cos((t.t0+time())/2)*t.move.x,
-				sin((t.t0+time())/2)*t.move.y
+				sin((t.t0+time())/2)*t.move.y,
+				0
 			)
 			t.pos=t.base+offset
 		end
@@ -772,19 +777,20 @@ target_proto={
 		elseif t.age/t.ttl>0.5 then
 			tcolor=14
 		end
+		local x,y=project(t.pos)
 		pal(7,tcolor)
-		spr(4,t.pos.x-4,t.pos.y-4)
+		spr(4,x-4,y-4)
 		pal(7,7)
 	end,
 }
 target_meta={__index=target_proto}
 
-function target_new(x,y,ttl)
+function target_new(p,ttl)
 	local t={
 		--these are calculcated from
 		--base+offset
-		pos=v2(x,y),
-		base=v2(x,y),
+		pos=p,
+		base=p,
 		move=v2(
 			rnd(10)+5,
 			rnd(3)+5
@@ -810,8 +816,8 @@ function map_init()
 
 		char_minx=20,
 		char_maxx=256,
-		char_miny=76,
-		char_maxy=90,
+		char_minz=0,
+		char_maxz=28
 	}
 end
 
@@ -835,6 +841,14 @@ function map_draw()
 			x-=1
 		end
 	end
+end
+
+-- project from 3d isometric space into screen space
+function project(v)
+	local x,y,z=v:unpack()
+	local x1=x+0.5*z
+	local y1=96-(y+0.5*z)
+	return x1,y1
 end
 
 cam_proto={
@@ -980,12 +994,13 @@ end
 barks_proto={
 	update=function(b,dt)
 		b.age+=dt
-		b.pos.y-=15*dt
+		b.pos.y+=15*dt
 	end,
 	draw=function(b)
-		print(b.txt,b.pos.x,b.pos.y+1,6)
-		print(b.txt,b.pos.x-1,b.pos.y+1,6)
-		print(b.txt,b.pos.x,b.pos.y,5)
+		local x,y=project(b.pos)
+		print(b.txt,x,y+1,6)
+		print(b.txt,x-1,y+1,6)
+		print(b.txt,x,y,5)
 	end,
 }
 barks_meta={__index=barks_proto}
@@ -1076,6 +1091,16 @@ function easeout(i)
  return 1-(1-i)^3
 end
 
+function rnd_btwn(lo,hi)
+	return lo+rnd(hi-lo)
+end
+
+function add_all(table, to_add)
+	for k,v in pairs(to_add) do
+		add(table, v)
+	end
+end
+
 function vtoward(u,v)
 	return (u-v):unit()
 end
@@ -1131,6 +1156,41 @@ v2_meta={
 function v2(x,y)
 	local v={x=x,y=y}
 	setmetatable(v,v2_meta)
+	return v
+end
+
+--3d vector
+v3_meta={
+	__mul=function(a,b)
+		if type(b) == "number" then
+			return v3(a.x*b,a.y*b,a.z*b)
+		end
+		if type(a) == "number" then
+			return v3(a*b.x,a*b.y,a*b.z)
+		end
+	end,
+	__add=function(u,v)
+		return v3(u.x+v.x,u.y+v.y,u.z+v.z)
+	end,
+	__sub=function(u,v)
+		return v3(u.x-v.x,u.y-v.y,u.z-v.z)
+	end,
+	__index={
+		len=function(v)
+			return sqrt(v.x^2+v.y^2+v.z^2)
+		end,
+		unit=function(v)
+			local fac=1/v:len()
+			return fac*v
+		end,
+		unpack=function(v)
+			return v.x,v.y,v.z
+		end
+	},
+}
+function v3(x,y,z)
+	local v={x=x,y=y,z=z}
+	setmetatable(v,v3_meta)
 	return v
 end
 
