@@ -10,18 +10,17 @@ function _init()
 	-- constants
 	gravity=9.81*2
 	drag=0.1
-
-	scn=nil
 	game_dur=25.5 -- seconds
 
+	scn=nil
 	game_flow=flow.scene(credits_scn)
 	.andthen(
 		-- main game loop
 		flow.forever(
 			flow
 			.scene(title_scn)
-			--.andthen(flow.scene(dialogue_scn))
-			--.andthen(flow.scene(explainer_scn))
+			.andthen(flow.scene(dialogue_scn))
+			.andthen(flow.scene(explainer_scn))
 			.andthen(flow.scene(game_scn))
 			.flatmap(function(score)
 				return flow.scene(results_scn, score)
@@ -278,48 +277,42 @@ function game_scn(nxt)
 		particles={},
 		beangroups={},
 		kids={},
+		barks={},
 	}
 
-	--dad is 24 pixels tall, so
-	-- 1.5m == 24px
-	-- 9.8m == 156px?
-	dad=init_dad(63,80)
-
-	cam_init()
-	map_init()
-	target_init()
-	kids_init()
-	barks_init()
-
+	dad=dad_new(63,80)
 	add(scn.kids, kids_new(32,80,8))
 	add(scn.kids, kids_new(96,80,12))
 
-	beans_init()
-	particles_init()
+	cam=cam_new()
+	map_init()
 
- 
 	function scn.init()
 		music(16)
 	end
 
 	function scn.update(s, dt)
 		dad:update(dt)
-		cam_update(dt)
-		barks_update(dt)
-
+		cam:update(dt,dad.x-63)
+		
 		for k,v in pairs(s.kids) do
 			v:update(dt,scn)
 		end
-
 		for k,v in pairs(s.beangroups) do
 			v:update(dt,scn)
 		end
-		
 		for k,v in pairs(s.particles) do
 			v:update(dt)
 			-- cleanup particles past their lifetime
 			if v.is_done then
 				del(s.particles,v)
+			end
+		end
+		for k,v in pairs(s.barks) do
+			v:update(dt)
+			--cleanup barks past their lifetime
+			if v.age>=v.ttl then
+				del(s.barks,v)
 			end
 		end
 		
@@ -331,7 +324,7 @@ function game_scn(nxt)
 	
 	function scn.draw(s)
 		cls()
-		cam_draw()
+		cam:draw()
 		map_draw()
 		
 		for k,v in pairs(s.kids) do
@@ -347,13 +340,9 @@ function game_scn(nxt)
 		end
 		for k,v in pairs(s.particles) do
 			v:draw()
-		end
-		barks_draw()
-
-		if debug then
-			print(cam.x,cam.x+4,cam.y+4,8)
-			print(dad.x,cam.x+4,cam.y+10,8)
-			print(abs(dad.x-(cam.x+cam.followx)),cam.x+4,cam.y+16,8)
+		end	
+		for k,v in pairs(s.barks) do
+			v:draw()
 		end
 		
 		local time_left=game_dur-scn.t
@@ -372,16 +361,16 @@ function game_scn(nxt)
 	function scn.add_beans(s,bg)
 		add(s.beangroups,bg)
 	end
+	function scn.add_bark(s,bark)
+		add(s.barks,bark)
+	end
 
 	return scn
 end
 
 
 function dialogue_scn(nxt)
-	local scn={
-		t=0,
-		particles={},
-	}
+	local scn={}
 
 	local dialogue_flow = 
 	 flow.scene(dialogue_box,
@@ -436,8 +425,108 @@ end
 
 -->8
 --dad,kids
+dad_proto={
+	--dad is 24 pixels tall, so
+	-- 1.5m == 24px
+	-- 9.8m == 156px?
+	start_diving=function(d)
+		d.state="diving"
+		d.dive_timer=0
+	end,
+	start_cooldown=function(d)
+		d.state="cooldown"
+		d.cooldown_timer=0
+	end,
+	start_walking=function(d)
+		d.state="walking"
+	end,
+	update=function(d,dt)
+		if d.state == "walking" then
+			d:update_walking(dt)
+		elseif d.state == "diving" then
+			d:update_diving(dt)
+		elseif d.state == "cooldown" then
+			d:update_cooldown(dt)
+		end
+	end,
+	update_walking=function(d,dt)
+		local vx,vy=0,0
+		if btn(⬅️) then
+			vx-=d.spd
+		elseif btn(➡️) then
+			vx+=d.spd
+		end
+		d:move(vx,vy)
+		-- switch to diving
+		if btn(⬅️) then
+			d.direction=⬅️
+		elseif btn(➡️) then
+			d.direction=➡️
+		end
+		if btnp(❎) then
+			d:start_diving()
+			return
+		end
+	end,
+	update_diving=function(d,dt)
+		local vx,vy=0,0
+		if d.direction==⬅️ then
+			vx-=d.dive_spd
+		elseif d.direction==➡️ then
+			vx+=d.dive_spd
+		end
+		d:move(vx,vy)
+		-- switch to cooldown
+		d.dive_timer+=dt
+		if d.dive_timer>=d.dive_dur then
+			d:start_cooldown()
+		end
+	end,
+	update_cooldown=function(d,dt)
+		-- switch back to walking
+		d.cooldown_timer+=dt
+		if d.cooldown_timer>=d.cooldown_dur then
+			d:start_walking()
+		end
+	end,
+	update_diving=function(d,dt)
+		local vx,vy=0,0
+		if d.direction==⬅️ then
+			vx-=d.dive_spd
+		elseif d.direction==➡️ then
+			vx+=d.dive_spd
+		end
+		d:move(vx,vy)
+		-- switch back to walking
+		d.dive_timer+=dt
+		if d.dive_timer>=d.dive_dur then
+			d:start_cooldown()
+		end
+	end,
+	move=function(d,vx,vy)
+		d.x=mid(mapinfo.char_minx,d.x+vx*dt,256)
+		d.y+=vy*dt
+	end,
+	draw=function(d)
+		local fac=0
+		if d.state=="diving" then
+			fac=d.dive_timer/d.dive_dur
+		elseif d.state=="cooldown" then
+			fac=1
+		end
+		local rot=0.25*fac
+		local flip=d.direction==⬅️
+		-- dad sprite
+		pd_rotate(d.x,d.y,rot,5.5,61,3,flip)
+		--dad's mask
+		local sign=flip and -1 or 1
+		local mask_x,mask_y=rotate(sign*rot,0,-2)
+		pd_rotate(d.x+mask_x,d.y+mask_y,rot,2,63,1,flip)
+	end,
+}
+dad_meta={__index=dad_proto}
 
-function init_dad(x,y)
+function dad_new(x,y)
 	local dad={
 		x=x,
 		y=y,
@@ -448,189 +537,94 @@ function init_dad(x,y)
 		cooldown_dur=0.5,
 		cooldown_timer=0,
 		state="walking",
-		direction=➡️,
-		start_diving=function(d)
-			d.state="diving"
-			d.dive_timer=0
-		end,
-		start_cooldown=function(d)
-			d.state="cooldown"
-			d.cooldown_timer=0
-		end,
-		start_walking=function(d)
-			d.state="walking"
-		end,
-		update=function(d,dt)
-			if d.state == "walking" then
-				d:update_walking(dt)
-			elseif d.state == "diving" then
-				d:update_diving(dt)
-			elseif d.state == "cooldown" then
-				d:update_cooldown(dt)
-			end
-		end,
-		update_walking=function(d,dt)
-			local vx,vy=0,0
-			if btn(⬅️) then
-				vx-=d.spd
-			elseif btn(➡️) then
-				vx+=d.spd
-			end
-			d:move(vx,vy)
-			-- switch to diving
-			if btn(⬅️) then
-				d.direction=⬅️
-			elseif btn(➡️) then
-				d.direction=➡️
-			end
-			if btnp(❎) then
-				d:start_diving()
-				return
-			end
-		end,
-		update_diving=function(d,dt)
-			local vx,vy=0,0
-			if d.direction==⬅️ then
-				vx-=d.dive_spd
-			elseif d.direction==➡️ then
-				vx+=d.dive_spd
-			end
-			d:move(vx,vy)
-			-- switch to cooldown
-			d.dive_timer+=dt
-			if d.dive_timer>=d.dive_dur then
-				d:start_cooldown()
-			end
-		end,
-		update_cooldown=function(d,dt)
-			-- switch back to walking
-			d.cooldown_timer+=dt
-			if d.cooldown_timer>=d.cooldown_dur then
-				d:start_walking()
-			end
-		end,
-		update_diving=function(d,dt)
-			local vx,vy=0,0
-			if d.direction==⬅️ then
-				vx-=d.dive_spd
-			elseif d.direction==➡️ then
-				vx+=d.dive_spd
-			end
-			d:move(vx,vy)
-			-- switch back to walking
-			d.dive_timer+=dt
-			if d.dive_timer>=d.dive_dur then
-				d:start_cooldown()
-			end
-		end,
-		move=function(d,vx,vy)
-			d.x=mid(mapinfo.char_minx,d.x+vx*dt,256)
-			d.y+=vy*dt
-		end,
-		draw=function(d)
-			local fac=0
-			if d.state=="diving" then
-				fac=d.dive_timer/d.dive_dur
-			elseif d.state=="cooldown" then
-				fac=1
-			end
-			local rot=0.25*fac
-			local flip=d.direction==⬅️
-			-- dad sprite
-			pd_rotate(d.x,d.y,rot,5.5,61,3,flip)
-			--dad's mask
-			local sign=flip and -1 or 1
-			local mask_x,mask_y=rotate(sign*rot,0,-2)
-			pd_rotate(d.x+mask_x,d.y+mask_y,rot,2,63,1,flip)
-		end,
+		direction=➡️
 	}
+	setmetatable(dad,dad_meta)
 	return dad
 end
 
 --kids
-function kids_init()
-	kids_proto={
-		start_moving=function(k)
-			k.target=nil
-			k.state="move"
-		end,
-		start_targeting=function(k)
-			k.nextx=nil
-			k.state="target"
-		end,
-		update=function(k,dt,scn)
-			if k.state=="target" then
-				k:update_target(dt,scn)
-			elseif k.state=="move" then
-				k:update_move(dt,scn)
+kids_proto={
+	start_moving=function(k)
+		k.target=nil
+		k.state="move"
+	end,
+	start_targeting=function(k)
+		k.nextx=nil
+		k.state="target"
+	end,
+	update=function(k,dt,scn)
+		if k.state=="target" then
+			k:update_target(dt,scn)
+		elseif k.state=="move" then
+			k:update_move(dt,scn)
+		end
+	end,
+	update_target=function(k,dt,scn)
+		--get target
+		if not k.target then
+			k.target=target_new(
+				k.x+rnd(60)-30,
+				mapinfo.char_miny-8,
+				rnd(1)+2
+			)
+		else
+			k.target:update(dt)
+			--throw target
+			if k.target.age>=k.target.ttl then
+				k:throw_beans(scn)
+				k:start_moving()
 			end
-		end,
-		update_target=function(k,dt,scn)
-			--get target
-			if not k.target then
-				k.target=target_new(
-					k.x+rnd(60)-30,
-					mapinfo.char_miny-8,
-					rnd(1)+2
-				)
+		end
+	end,
+	update_move=function(k,dt,scn)
+		--kid movement
+		--get pos
+		if not k.nextx then
+			k.nextx=rnd(mapinfo.char_maxx-mapinfo.char_minx)+mapinfo.char_minx
+			k.nexty=rnd(mapinfo.char_maxy-mapinfo.char_miny)+mapinfo.char_miny
+		elseif dist(k.x,k.y,k.nextx,k.nexty)<=8 then
+			--reached pos
+			k:start_targeting()
+		else
+			--move
+			local vx,vy=vtoward(k.nextx,k.nexty,k.x,k.y)
+			k.x+=vx*dt*k.spd
+			k.y+=vy*dt*k.spd
+			if vx > 0 then
+				k.direction=⬅️
 			else
-				k.target:update(dt)
-				
-				--throw target
-				if k.target.age>=k.target.ttl then
-					k:throw_beans(scn)
-					k:start_moving()
-				end
+				k.direction=➡️
 			end
-		end,
-		update_move=function(k,dt,scn)
-			--kid movement
-			--get pos
-			if not k.nextx then
-				k.nextx=rnd(mapinfo.char_maxx-mapinfo.char_minx)+mapinfo.char_minx
-				k.nexty=rnd(mapinfo.char_maxy-mapinfo.char_miny)+mapinfo.char_miny
-			elseif dist(k.x,k.y,k.nextx,k.nexty)<=8 then
-				--reached pos
-				k:start_targeting()
-			else
-				--move
-				local vx,vy=vtoward(k.nextx,k.nexty,k.x,k.y)
-				k.x+=vx*dt*k.spd
-				k.y+=vy*dt*k.spd
-				if vx > 0 then
-					k.direction=⬅️
-				else
-					k.direction=➡️
-				end
-			end
-		end,
-		throw_beans=function(k)
-			barks_new("おにはそと!",k.x,k.y-10,2)
-			local vx,vy=vtoward(k.target.x,k.target.y,k.x,k.y)
-			local bg=beans_new(k.x,k.y,3,vx,vy)
-			scn:add_beans(bg)
-		end,
-		draw=function(k,layer,dad_y)
-			-- hack: sprite stacking order
-			if layer=="before" and k.y-6>dad_y then
-				return
-			elseif layer=="after" and k.y-6<=dad_y then
-				return
-			end
-			local flip=k.direction==⬅️
-			if k.target then
-				flip=k.target.x>k.x
-			end
-			pal(14,k.shirtcolor)
-			spr(20,k.x-4,k.y-8,1,2,flip)
-			pal(14,14)
-			if k.target then
-				k.target:draw()
-			end
-		end,
-	}
-	kids_meta={__index=kids_proto}
-end
+		end
+	end,
+	throw_beans=function(k,scn)
+		local bark=barks_new("おにはそと!",k.x,k.y-10,2)
+		scn:add_bark(bark)
+		local vx,vy=vtoward(k.target.x,k.target.y,k.x,k.y)
+		local bg=beans_new(k.x,k.y,3,vx,vy)
+		scn:add_beans(bg)
+	end,
+	draw=function(k,layer,dad_y)
+		-- hack: sprite stacking order
+		if layer=="before" and k.y-6>dad_y then
+			return
+		elseif layer=="after" and k.y-6<=dad_y then
+			return
+		end
+		local flip=k.direction==⬅️
+		if k.target then
+			flip=k.target.x>k.x
+		end
+		pal(14,k.shirtcolor)
+		spr(20,k.x-4,k.y-8,1,2,flip)
+		pal(14,14)
+		if k.target then
+			k.target:draw()
+		end
+	end,
+}
+kids_meta={__index=kids_proto}
 
 function kids_new(x,y,shirtcolor)
 	local k={
@@ -648,73 +642,71 @@ end
 
 -->8
 --beans, particles
-function beans_init()
-	beans_proto={
-		update=function(b,dt,scn)
-			for k,v in pairs(b.group) do
-				if time()-v.createdat>10 then
-					del(b.group,v)
-				end
-				
-				local maxy=mapinfo.char_maxy
-				local minx=mapinfo.char_minx
-				local maxx=mapinfo.char_maxx
-				
-				if not v.grounded then
-					--gravity
-					v.vy+=gravity*dt
-				end
-				
-				--collide with floor
-				if v.y+v.vy*dt>=maxy then
-					v.collided=true
-					v.vy*=-1
-				end
-				--collide with wall
-				if v.x+v.vx*dt<=minx or v.x+v.vx*dt>=maxx then
-					v.collided=true
-					v.vx*=-1
-				end
-				
-				--collide with dad
-				if not v.collided
-				 and v.x+v.vx*dt>=dad.x-8
-				 and v.x+v.vx*dt<=dad.x+8
-				 and v.y+v.vy*dt>=dad.y-12
-				 and v.y+v.vy*dt<=dad.y+12
-				then
-					v.vx*=-1
-					v.collided=true
-					scn:bean_hit(v)
-				end
-				
-				--add drag to reduce
-				-- velocity over time
-				v.vx*=1-drag
-				v.vy*=1-drag
+beans_proto={
+	update=function(b,dt,scn)
+		for k,v in pairs(b.group) do
+			if time()-v.createdat>10 then
+				del(b.group,v)
+			end
+			
+			local maxy=mapinfo.char_maxy
+			local minx=mapinfo.char_minx
+			local maxx=mapinfo.char_maxx
+			
+			if not v.grounded then
+				--gravity
+				v.vy+=gravity*dt
+			end
+			
+			--collide with floor
+			if v.y+v.vy*dt>=maxy then
+				v.collided=true
+				v.vy*=-1
+			end
+			--collide with wall
+			if v.x+v.vx*dt<=minx or v.x+v.vx*dt>=maxx then
+				v.collided=true
+				v.vx*=-1
+			end
+			
+			--collide with dad
+			if not v.collided
+			 and v.x+v.vx*dt>=dad.x-8
+			 and v.x+v.vx*dt<=dad.x+8
+			 and v.y+v.vy*dt>=dad.y-12
+			 and v.y+v.vy*dt<=dad.y+12
+			then
+				v.vx*=-1
+				v.collided=true
+				scn:bean_hit(v)
+			end
+			
+			--add drag to reduce
+			-- velocity over time
+			v.vx*=1-drag
+			v.vy*=1-drag
 
-				--if the bean is close to
-				-- to the ground and low
-				-- velocity, lets stop
-				-- the physics
-				if abs(v.vy)<1 and abs(maxy-v.y+v.vy)<5 then
-					v.y=maxy
-					v.vy=0
-					v.grounded=true
-				end
-				
-				v.y+=v.vy
-				v.x+=v.vx
+			--if the bean is close to
+			-- to the ground and low
+			-- velocity, lets stop
+			-- the physics
+			if abs(v.vy)<1 and abs(maxy-v.y+v.vy)<5 then
+				v.y=maxy
+				v.vy=0
+				v.grounded=true
 			end
-		end,
-		draw=function(b)
-			for k,v in pairs(b.group) do
-				spr(3,v.x-4,v.y-4)
-			end
-		end,
-	}
-	beans_meta={__index=beans_proto}
-end
+			
+			v.y+=v.vy
+			v.x+=v.vx
+		end
+	end,
+	draw=function(b)
+		for k,v in pairs(b.group) do
+			spr(3,v.x-4,v.y-4)
+		end
+	end,
+}
+beans_meta={__index=beans_proto}
 
 function beans_new(x,y,n,vx,vy)
 	local beans={
@@ -737,24 +729,22 @@ function beans_new(x,y,n,vx,vy)
 end
 
 --particles
-function particles_init()
-	particles_proto={
-		update=function(p,dt)
-			p.age+=dt
-			p.r-=4*dt
-			if p.age>=p.ttl then
-				p.is_done=true
-			end
-		end,
-		draw=function(p)
-			local fac=p.age/p.ttl
-			local r=4*(1-fac)
-			circfill(p.x,p.y,r,7)
-			circ(p.x,p.y,r,6)
-		end,
-	}
-	particles_meta={__index=particles_proto}
-end
+particles_proto={
+	update=function(p,dt)
+		p.age+=dt
+		p.r-=4*dt
+		if p.age>=p.ttl then
+			p.is_done=true
+		end
+	end,
+	draw=function(p)
+		local fac=p.age/p.ttl
+		local r=4*(1-fac)
+		circfill(p.x,p.y,r,7)
+		circ(p.x,p.y,r,6)
+	end,
+}
+particles_meta={__index=particles_proto}
 
 function particle_new(x,y)
 	local particle={
@@ -770,35 +760,33 @@ end
 
 -->8
 --targeting
-function target_init()
-	target_proto={
-		update=function(t,dt)
-			t.age+=dt
+target_proto={
+	update=function(t,dt)
+		t.age+=dt
 
-			--stop moving target before
-			--ttl
-			if t.age/t.ttl<0.8 then
-				t.txo=cos((t.timeoffset+time())/2)*t.movex
-				t.tyo=sin((t.timeoffset+time())/2)*t.movey
-			end
-			
-			t.x=t.basex+t.txo
-			t.y=t.basey+t.tyo
-		end,
-		draw=function(t)
-			local tcolor=7
-			if t.age/t.ttl>0.8 then
-				tcolor=8
-			elseif t.age/t.ttl>0.5 then
-				tcolor=14
-			end
-			pal(7,tcolor)
-			spr(4,t.x-4,t.y-4)
-			pal(7,7)
-		end,
-	}
-	target_meta={__index=target_proto}
-end
+		--stop moving target before
+		--ttl
+		if t.age/t.ttl<0.8 then
+			t.txo=cos((t.timeoffset+time())/2)*t.movex
+			t.tyo=sin((t.timeoffset+time())/2)*t.movey
+		end
+		
+		t.x=t.basex+t.txo
+		t.y=t.basey+t.tyo
+	end,
+	draw=function(t)
+		local tcolor=7
+		if t.age/t.ttl>0.8 then
+			tcolor=8
+		elseif t.age/t.ttl>0.5 then
+			tcolor=14
+		end
+		pal(7,tcolor)
+		spr(4,t.x-4,t.y-4)
+		pal(7,7)
+	end,
+}
+target_meta={__index=target_proto}
 
 function target_new(x,y,ttl)
 	local t={
@@ -861,8 +849,17 @@ function map_draw()
 	end
 end
 
-function cam_init()
-	cam={
+cam_proto={
+	update=function(c,dt,target_x)
+		c.x=mid(0,target_x,c.maxx)
+	end,
+	draw=function(c)
+		camera(c.x,c.y)
+	end
+}
+cam_meta={__index=cam_proto}
+function cam_new()
+	local cam={
 		x=32,
 		y=0,
 		minx=0,
@@ -871,16 +868,8 @@ function cam_init()
 		followx=63,
 		followy=63,
 	}
-end
-
-function cam_update(dt)
-	if dad then
-		cam.x=mid(0,dad.x-63,cam.maxx)
-	end
-end
-
-function cam_draw()
-	camera(cam.x,cam.y)
+	setmetatable(cam,cam_meta)
+	return cam
 end
 
 -->8
@@ -1000,24 +989,18 @@ end
 
 -->8
 --barks
-function barks_init()
-	barks={}
-	barks_proto={
-		update=function(b,dt)
-			b.age+=dt
-			b.y-=15*dt
-			if b.age>=b.ttl then
-				del(barks,b)
-			end
-		end,
-		draw=function(b)
-			print(b.txt,b.x,b.y+1,6)
-			print(b.txt,b.x-1,b.y+1,6)
-			print(b.txt,b.x,b.y,5)
-		end,
-	}
-	barks_meta={__index=barks_proto}
-end
+barks_proto={
+	update=function(b,dt)
+		b.age+=dt
+		b.y-=15*dt
+	end,
+	draw=function(b)
+		print(b.txt,b.x,b.y+1,6)
+		print(b.txt,b.x-1,b.y+1,6)
+		print(b.txt,b.x,b.y,5)
+	end,
+}
+barks_meta={__index=barks_proto}
 
 function barks_new(txt,x,y,ttl)
 	local b={
@@ -1028,19 +1011,7 @@ function barks_new(txt,x,y,ttl)
 		age=0,
 	}
 	setmetatable(b,barks_meta)
-	return add(barks,b)
-end
-
-function barks_update(dt)
-	for k,v in pairs(barks) do
-		v:update(dt)
-	end
-end
-
-function barks_draw()
-	for k,v in pairs(barks) do
-		v:draw()
-	end
+	return b
 end
 
 -->8
