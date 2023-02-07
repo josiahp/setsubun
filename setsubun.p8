@@ -83,7 +83,7 @@ function credits_scn(nxt)
 end
 
 function spawn_beans(beans)
-	while true do
+	while beans do
 		-- wait 5 frames
 		for i=1,5 do
 			yield()
@@ -123,6 +123,7 @@ function title_scn(nxt)
 			s.strings:setlang(s.lang)
 		end
 		if btnp(❎) then
+			coresume(make_beans, nil)
 			nxt(s.strings)
 		end
 
