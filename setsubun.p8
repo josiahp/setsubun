@@ -206,21 +206,23 @@ function explainer_scn(nxt,strings)
 end
 
 function results_scn(nxt, score)
- local scn = {
-  t=0,
-  inputlock=1,
-  result=nil,
-  done=false,
-  
-  scorespd=0.075,
-  scorecounter=0,
-  scoretimer=0,
-  
-  --the speed of the change of
-  -- the result display
-  resulttimer=0,
-  resultspd=0.1,
- }
+	local scn = {
+		t=0,
+		inputlock=1,
+		result=nil,
+		done=false,
+	
+		scorespd=0.075,
+		scorecounter=0,
+		scoretimer=0,
+		
+		--the speed of the change of
+		-- the result display
+		resulttimer=0,
+		resultspd=0.1,
+	}
+	
+	local beans = {}
 
  --sspr params for kanji
  local kanji = {
@@ -274,40 +276,57 @@ function results_scn(nxt, score)
 	end
 	
 	function scn.update(s,dt)
-	 s.t+=dt
-	 
-	 if not s.done then
-	  s.scoretimer+=dt
-	 	s.resulttimer+=dt
-	 
-	  --update kanji
-		 if s.resulttimer>=s.resultspd then
-		  s.result=rnd(kanji)
-		  s.resulttimer%=s.resultspd
-		 end
-		 
-		 --update score
-		 if s.scoretimer>=s.scorespd then
-		  s.scorecounter=min(score,s.scorecounter+1)
-		  s.scoretimer%=s.scorespd
-		 end
-		 
-		 --settle the result
-		 if s.scorecounter==score then
-		  s.done=true
-		  s.result=rnd(kanji)
-		 end
-		end
-	 
+		s.t+=dt
+		
 		if s.t>=s.inputlock and btnp(❎) then
 			nxt(nil)
+			return
+		end
+
+		-- update beans
+		for k,v in pairs(beans) do
+			v:update(dt)
+			if v.age >= v.ttl then
+				del(beans,v)
+			end
+		end
+
+		if s.done then return end
+
+		--update kanji
+		s.resulttimer+=dt
+		if s.resulttimer>=s.resultspd then
+			s.result=rnd(kanji)
+			s.resulttimer%=s.resultspd
+		end
+		
+		--update score
+		s.scoretimer+=dt
+		if s.scoretimer>=s.scorespd then
+			s.scorecounter=min(score,s.scorecounter+1)
+			s.scoretimer%=s.scorespd
+			s:add_bean()
+		end
+
+		--settle the result
+		if s.scorecounter==score then
+			s.done=true
+			s.result=rnd(kanji)
 		end
 	end
 
 	function scn.draw(s)
 		cls(1)
+
+		-- draw beans
+		camera(0,-28)
+		for k,v in pairs(beans) do
+			v:draw()
+		end
+		camera()
+
+		-- draw results
 		color(7)
-		
 		if s.result then
 		 x=64-#s.result.params*8
 		 for k,v in ipairs(s.result.params) do
@@ -325,6 +344,18 @@ function results_scn(nxt, score)
 		if s.done then
 		 print("press ❎ to restart",26,100)
 		end
+	end
+
+	function scn.add_bean(s)
+		-- then spawn a new bean
+		local x=63-4+rnd(8)
+		local y=128+28
+		local z=0
+		local b=bean_new(
+			v3(x,y,z),
+			v3(0,0,0)
+		)
+		add(beans, b)
 	end
 
 	return scn
