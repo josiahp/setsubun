@@ -112,7 +112,7 @@ end
 function explainer_scn(nxt)
 	local scn = {
 		timer=0,
-		dur=2,
+		dur=1,
 		is_done=false,
 	}
 
@@ -274,17 +274,16 @@ function game_scn(nxt)
 	local scn={
 		t=0,
 		score=0,
-		particles={},
+		effects={},
 		beans={},
 		kids={},
-		barks={},
 	}
 
-	dad=dad_new(v3(63,0,14))
 	add(scn.kids, kids_new(v3(32,0,14),8))
 	add(scn.kids, kids_new(v3(96,0,14),12))
-
-	cam=cam_new()
+	
+	local dad=dad_new(v3(63,0,14))
+	local cam=cam_new()
 	map_init()
 
 	function scn.init()
@@ -310,22 +309,15 @@ function game_scn(nxt)
 				s:bean_hit(v)
 			end
 			-- cleanup beans past their lifetime
-			if v.age>v.ttl then
+			if v.age>=v.ttl then
 				del(s.beans,v)
 			end
 		end
-		for k,v in pairs(s.particles) do
+		for k,v in pairs(s.effects) do
 			v:update(dt)
-			-- cleanup particles past their lifetime
-			if v.is_done then
-				del(s.particles,v)
-			end
-		end
-		for k,v in pairs(s.barks) do
-			v:update(dt)
-			--cleanup barks past their lifetime
+			--cleanup barks+particles past their lifetime
 			if v.age>=v.ttl then
-				del(s.barks,v)
+				del(s.effects,v)
 			end
 		end
 		
@@ -349,18 +341,15 @@ function game_scn(nxt)
 		--from back (+z) to front (-z)
 		local lo,hi=mapinfo.char_minz,mapinfo.char_maxz
 		for depth=hi,lo,-1 do
-		 for _,a in pairs(actors) do
-		  if a.pos.z>=depth then
-		   a:draw()
-		   del(actors,a)
-		  end
-		 end
+			for _,a in pairs(actors) do
+				if a.pos.z>=depth then
+					a:draw()
+					del(actors,a)
+				end
+			end
 		end
-
-		for k,v in pairs(s.particles) do
-			v:draw()
-		end	
-		for k,v in pairs(s.barks) do
+		--draw effects on top
+		for k,v in pairs(s.effects) do
 			v:draw()
 		end
 		
@@ -376,14 +365,14 @@ function game_scn(nxt)
 		s.score+=1
 		del(s.beans,b)
 		local p=particle_new(b.pos)
-		add(s.particles, p)
+		add(s.effects,p)
 	end
 	function scn.add_beans(s,beans)
 		-- add all beans
 		add_all(s.beans,beans)
 	end
 	function scn.add_bark(s,bark)
-		add(s.barks,bark)
+		add(s.effects,bark)
 	end
 
 	return scn
@@ -394,33 +383,32 @@ function dialogue_scn(nxt)
 	local scn={}
 
 	local dialogue_flow = 
-	 flow.scene(dialogue_box,
-	  "おとん、せつふ゛んはな-に?"
-	 ).andthen(
-	 flow.scene(dialogue_box,
-	  "せつふ゛んはむかし、\n"..
-	  "いちねんのいちは゛んはし゛まり\n"..
-	  "のひた゛ったんた゛よ。"
-	 ).andthen(
-		flow.scene(dialogue_box, 
-		 "むかしのひとはいちねんの\n"..
-		 "はし゛まりに、「よいことか゛\n"..
-		 "ありますように」とまめを\n"..
-		 "まいておいのりしてたんた゛って。"
-		).andthen(
-		flow.scene(dialogue_box, 
-		 "むかしからつふ゛んのひに\n"..
-		 "「おうちにわるいものか゛はいって\n"..
-		 "くる」といわれてる、まめを\n"..
-		 "つかっておいはらってるんた゛よ。"
-		).andthen(
 		flow.scene(dialogue_box,
-		 "まめはわるいものをやっつけて\n"..
-		 "くれるんた゛って。すこ゛いね。\n"..
-		 "「まめ」はからた゛か゛け゛んきという\n"..
-		 "いみもあるんた゛って。\n"
-		))))
-	)
+		"おとん、せつふ゛んはな-に?")
+		.andthen(
+		flow.scene(dialogue_box,
+		"せつふ゛んはむかし、\n"..
+		"いちねんのいちは゛んはし゛まり\n"..
+		"のひた゛ったんた゛よ。"))
+		.andthen(
+		flow.scene(dialogue_box, 
+		"むかしのひとはいちねんの\n"..
+		"はし゛まりに、「よいことか゛\n"..
+		"ありますように」とまめを\n"..
+		"まいておいのりしてたんた゛って。"))
+		.andthen(
+		flow.scene(dialogue_box, 
+		"むかしからつふ゛んのひに\n"..
+		"「おうちにわるいものか゛はいって\n"..
+		"くる」といわれてる、まめを\n"..
+		"つかっておいはらってるんた゛よ。"))
+		.andthen(
+		flow.scene(dialogue_box,
+		"まめはわるいものをやっつけて\n"..
+		"くれるんた゛って。すこ゛いね。\n"..
+		"「まめ」はからた゛か゛け゛んきという\n"..
+		"いみもあるんた゛って。\n"))
+	
 	local dialogue=nil
 	dialogue_flow.go(
 		-- next dialogue box
@@ -525,13 +513,12 @@ dad_proto={
 		local rot=0.25*fac
 		local flip=d.direction==⬅️
 		local x,y=project(d.pos)
-		y-=12 --shift by half of height
 		-- dad sprite
-		pd_rotate(x,y,rot,5.5,61,3,flip)
+		pd_rotate(x,y-12,rot,5.5,61,3,flip)
 		--dad's mask
 		local sign=flip and -1 or 1
 		local mask_x,mask_y=rotate(sign*rot,0,-2)
-		pd_rotate(x+mask_x,y+mask_y,rot,2,63,1,flip)
+		pd_rotate(x+mask_x,y-12+mask_y,rot,2,63,1,flip)
 	end,
 }
 dad_meta={__index=dad_proto}
@@ -576,13 +563,13 @@ kids_proto={
 			local y=8
 			local z=14
 			k.target=target_new(v3(x,y,z),rnd(1)+2)
-		else
-			k.target:update(dt)
-			--throw target
-			if k.target.age>=k.target.ttl then
-				k:throw_beans(scn)
-				k:start_moving()
-			end
+			return
+		end
+		k.target:update(dt)
+		--throw target
+		if k.target.age>=k.target.ttl then
+			k:throw_beans(scn)
+			k:start_moving()
 		end
 	end,
 	update_move=function(k,dt,scn)
@@ -608,7 +595,7 @@ kids_proto={
 		end
 	end,
 	throw_beans=function(k,scn)
-		local bark=barks_new("おにはそと!",k.pos+v3(0,10,0),2)
+		local bark=barks_new("おにはそと!",k.pos+v3(0,20,0))
 		scn:add_bark(bark)
 		local vel=vtoward(k.target.pos,k.pos)
 		local bg=beans_new(k.pos,vel,3)
@@ -728,9 +715,6 @@ end
 particles_proto={
 	update=function(p,dt)
 		p.age+=dt
-		if p.age>=p.ttl then
-			p.is_done=true
-		end
 	end,
 	draw=function(p)
 		local fac=p.age/p.ttl
@@ -747,7 +731,6 @@ function particle_new(p)
 		pos=p,
 		age=0,
 		ttl=1,
-		is_done=false,
 	}
 	setmetatable(particle,particles_meta)
 	return particle
@@ -772,9 +755,10 @@ target_proto={
 	end,
 	draw=function(t)
 		local tcolor=7
-		if t.age/t.ttl>0.8 then
+		local fac=t.age/t.ttl
+		if fac>0.8 then
 			tcolor=8
-		elseif t.age/t.ttl>0.5 then
+		elseif fac>0.5 then
 			tcolor=14
 		end
 		local x,y=project(t.pos)
@@ -809,11 +793,12 @@ end
 
 function map_init()
 	mapinfo={
+		-- wall dimensions (in map space)
 		minx=0,
 		maxx=48,
 		miny=0,
 		maxy=16,
-
+		-- floor dimensions (in isometric space)
 		char_minx=20,
 		char_maxx=256,
 		char_minz=0,
@@ -1005,11 +990,11 @@ barks_proto={
 }
 barks_meta={__index=barks_proto}
 
-function barks_new(txt,pos,ttl)
+function barks_new(txt,pos)
 	local b={
 		pos=pos,
 		txt=txt,
-		ttl=ttl,
+		ttl=2,
 		age=0,
 	}
 	setmetatable(b,barks_meta)
