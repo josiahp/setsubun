@@ -184,7 +184,7 @@ function explainer_scn(nxt)
 		if s.timer<s.dur then return end
 		s.is_done=true
 		if btnp(❎) then
-			nxt()
+			nxt(nil)
 		end
 	end
 
@@ -493,19 +493,29 @@ function dialogue_scn(nxt)
 
 	local dialogue_flow = 
 	flow.scene(dialogue_box,
-		strings:get("intro_1"))
+		strings:get("intro_1"),
+		strings:get("kids")
+	)
 	.andthen(
 		flow.scene(dialogue_box,
-		strings:get("intro_2")))
+		strings:get("intro_2"),
+		strings:get("dad")
+	))
 	.andthen(
 		flow.scene(dialogue_box, 
-		strings:get("intro_3")))
+		strings:get("intro_3"),
+		strings:get("dad")
+	))
 	.andthen(
 		flow.scene(dialogue_box, 
-		strings:get("intro_4")))
+		strings:get("intro_4"),
+		strings:get("dad")
+	))
 	.andthen(
 		flow.scene(dialogue_box,
-		strings:get("intro_5")))
+		strings:get("intro_5"),
+		strings:get("dad")
+	))
 		
 	local dialogue=nil
 	dialogue_flow.go(
@@ -1045,10 +1055,24 @@ function boxfill(x,y,w,h,col)
 	rectfill(x,y,x+w,y+h,col)
 end
 
+function is_latin(char)
+	local code=ord(char)
+	return code>=32 and code<=127
+end
+
+function textwidth(str)
+	local len=0
+	for i=1,#str do
+		local c=sub(str,i,i)
+		len+=is_latin(c) and 5 or 8
+	end
+	return len
+end
+
 -- dialogue
 textspeed=20 --characters per second
 
-function dialogue_box(nxt, text)
+function dialogue_box(nxt, text, speaker)
 	local dialogue = {
 		t=0,
 		dur=#text/textspeed,
@@ -1081,6 +1105,16 @@ function dialogue_box(nxt, text)
 		x+=2
 		y+=2
 		print(d.text,x,y,palette.text)
+		-- draw the speaker
+		x=1
+		y=84
+		w=textwidth(speaker)+2
+		h=6+2
+		boxfill(x,y,w,h, palette.border)
+		x+=2
+		y+=2
+		print(speaker,x,y,palette.text)
+
 		-- draw button hint
 		if d.t>=d.dur then
 			x=128-12
@@ -1333,6 +1367,14 @@ function strings_init()
 			hud_score={
 				jp="スコア",
 				en="score",
+			},
+			kids={
+				jp="こと゛も",
+				en="kids",
+			},
+			dad={
+				jp="おとうさん",
+				en="dad",
 			},
 			intro_1={
 				jp="おとん、せつふ゛んはな-に?",
