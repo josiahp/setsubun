@@ -12,6 +12,8 @@ function _init()
 	drag=0.1
 	game_dur=25.5 -- seconds
 
+	map_init()
+
 	scn=nil
 	game_flow=flow.scene(credits_scn)
 	.andthen(
@@ -29,7 +31,6 @@ function _init()
 			 end)
 		)
 	)
-
 	game_flow.go(
 		-- transition to next scene
 		function(nxt)
@@ -81,6 +82,24 @@ function credits_scn(nxt)
 	return scn
 end
 
+function spawn_beans(beans)
+	while true do
+		-- wait 5 frames
+		for i=1,5 do
+			yield()
+		end
+		-- then spawn a new bean
+		local x=rnd(128)
+		local y=128+28+rnd(64)
+		local z=0
+		local b=bean_new(
+			v3(x,y,z),
+			v3(0,0,0)
+		)
+		add(beans, b)
+	end
+end
+
 function title_scn(nxt)
 	local strings=strings_init()
 	local scn = {
@@ -88,26 +107,46 @@ function title_scn(nxt)
 		lang=1,
 		strings=strings,
 	}
+	local beans={}
+	local make_beans=cocreate(spawn_beans)
 
 	function scn.init(s)
 		music(0)
 	end
 
 	function scn.update(s,dt)
-	 if btnp(⬆️) then
-	  s.lang=max(s.lang-1,1)
-	  s.strings:setlang(s.lang)
-	 elseif btnp(⬇️) then
-	  s.lang=min(s.lang+1,#s.langs)
-	  s.strings:setlang(s.lang)
-	 end
+		if btnp(⬆️) then
+			s.lang=max(s.lang-1,1)
+			s.strings:setlang(s.lang)
+		elseif btnp(⬇️) then
+			s.lang=min(s.lang+1,#s.langs)
+			s.strings:setlang(s.lang)
+		end
 		if btnp(❎) then
 			nxt(s.strings)
+		end
+
+		-- update beans
+		if costatus(make_beans) then
+			coresume(make_beans, beans)
+		end
+		for k,v in pairs(beans) do
+			v:update(dt)
+			if v.age >= v.ttl then
+				del(beans,v)
+			end
 		end
 	end
 
 	function scn.draw(s)
 		cls(1)
+		
+		camera(0,-28)
+		for k,v in pairs(beans) do
+			v:draw()
+		end
+		camera()
+		
 		color(7)
 		local title="\^w\^t".."せつbun"
 		local x,y=36,48
@@ -309,7 +348,6 @@ function game_scn(nxt,strings)
 	
 	local dad=dad_new(v3(63,0,14))
 	local cam=cam_new()
-	map_init()
 
 	function scn.init()
 		music(16)
