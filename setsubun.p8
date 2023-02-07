@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 40
+version 41
 __lua__
 
 function _init()
@@ -19,12 +19,14 @@ function _init()
 		flow.forever(
 			flow
 			.scene(title_scn)
-			.andthen(flow.scene(dialogue_scn))
-			.andthen(flow.scene(explainer_scn))
-			.andthen(flow.scene(game_scn))
-			.flatmap(function(score)
-				return flow.scene(results_scn, score)
-			end)
+			.flatmap(function(strings)
+				return flow.scene(dialogue_scn,strings)
+					.andthen(flow.scene(explainer_scn,strings))
+					.andthen(flow.scene(game_scn,strings))
+					.flatmap(function(score)
+						return flow.scene(results_scn, score)
+					end)
+			 end)
 		)
 	)
 
@@ -56,7 +58,7 @@ end
 
 function credits_scn(nxt)
 	local scn = {
-		t=0
+		t=0,
 	}
 
 	function scn.update(s,dt)
@@ -80,15 +82,27 @@ function credits_scn(nxt)
 end
 
 function title_scn(nxt)
-	local scn = {}
+	local strings=strings_init()
+	local scn = {
+		langs=strings:getlangs(),
+		lang=1,
+		strings=strings,
+	}
 
 	function scn.init(s)
 		music(0)
 	end
 
 	function scn.update(s,dt)
+	 if btnp(⬆️) then
+	  s.lang=max(s.lang-1,1)
+	  s.strings:setlang(s.lang)
+	 elseif btnp(⬇️) then
+	  s.lang=min(s.lang+1,#s.langs)
+	  s.strings:setlang(s.lang)
+	 end
 		if btnp(❎) then
-			nxt(nil)
+			nxt(s.strings)
 		end
 	end
 
@@ -97,23 +111,35 @@ function title_scn(nxt)
 		color(7)
 		local title="\^w\^t".."せつbun"
 		local x,y=36,48
+		 print("setsubun",x+12,y+14,13)
 		for xx=-1,1,1 do
 			for yy=-1,1,1 do
 				print(title,x+xx,y+yy,13)
 			end
 		end
 		print(title, 36, 48,7)
-		print("press ❎ to start", 32, 72)
+		
+		y=80
+		
+		--show language indicator
+		print("▶",41,y+(s.lang-1)*8,9)
+		
+		--show languages
+		for k,v in pairs(s.langs) do
+			print(v.name,47,y,7)
+			y+=8
+		end
 	end
 
 	return scn
 end
 
-function explainer_scn(nxt)
+function explainer_scn(nxt,strings)
 	local scn = {
 		timer=0,
 		dur=1,
 		is_done=false,
+		strings=strings,
 	}
 
 	function scn.update(s,dt)
@@ -121,7 +147,7 @@ function explainer_scn(nxt)
 		if s.timer<s.dur then return end
 		s.is_done=true
 		if btnp(❎) then
-			nxt(nil)
+			nxt(s.strings)
 		end
 	end
 
@@ -129,11 +155,9 @@ function explainer_scn(nxt)
 		cls(1)
 		color(7)
 		
-		print("あそひ゛かた:", 40, 24)
-		print("あなたはオニ。", 4, 48)
-		print("オニはやっつけられるのか゛\nしこ゛とて゛す。", 4, 48+8)
-		print("こと゛もたちか゛せつふ゛んを\nたのしめるように、\nまめか゛あたるよう`にか゛んは゛れ!")
-		
+		print(s.strings:get("how_to_play_1"), 40, 24)
+		print(s.strings:get("how_to_play_2"), 4, 48)
+
 		if s.is_done then
 			print("press ❎ to start", 32, 102)
 		end
@@ -270,13 +294,14 @@ end
 -->8
 --game scene
 
-function game_scn(nxt)
+function game_scn(nxt,strings)
 	local scn={
 		t=0,
 		score=0,
 		effects={},
 		beans={},
 		kids={},
+		strings=strings,
 	}
 
 	add(scn.kids, kids_new(v3(32,0,14),8))
@@ -354,7 +379,7 @@ function game_scn(nxt)
 		end
 		
 		local time_left=game_dur-scn.t
-		hud_draw(time_left,s.score)
+		hud_draw(s,time_left)
 	end
 
 	function scn.destroy()
@@ -379,36 +404,27 @@ function game_scn(nxt)
 end
 
 
-function dialogue_scn(nxt)
-	local scn={}
+function dialogue_scn(nxt,strings)
+	local scn={
+		strings=strings,
+	}
 
 	local dialogue_flow = 
+	flow.scene(dialogue_box,
+		scn.strings:get("intro_1"))
+	.andthen(
 		flow.scene(dialogue_box,
-		"おとん、せつふ゛んはな-に?")
-		.andthen(
-		flow.scene(dialogue_box,
-		"せつふ゛んはむかし、\n"..
-		"いちねんのいちは゛んはし゛まり\n"..
-		"のひた゛ったんた゛よ。"))
-		.andthen(
+		scn.strings:get("intro_2")))
+	.andthen(
 		flow.scene(dialogue_box, 
-		"むかしのひとはいちねんの\n"..
-		"はし゛まりに、「よいことか゛\n"..
-		"ありますように」とまめを\n"..
-		"まいておいのりしてたんた゛って。"))
-		.andthen(
+		scn.strings:get("intro_3")))
+	.andthen(
 		flow.scene(dialogue_box, 
-		"むかしからつふ゛んのひに\n"..
-		"「おうちにわるいものか゛はいって\n"..
-		"くる」といわれてる、まめを\n"..
-		"つかっておいはらってるんた゛よ。"))
-		.andthen(
+		scn.strings:get("intro_4")))
+	.andthen(
 		flow.scene(dialogue_box,
-		"まめはわるいものをやっつけて\n"..
-		"くれるんた゛って。すこ゛いね。\n"..
-		"「まめ」はからた゛か゛け゛んきという\n"..
-		"いみもあるんた゛って。\n"))
-	
+		scn.strings:get("intro_5")))
+		
 	local dialogue=nil
 	dialogue_flow.go(
 		-- next dialogue box
@@ -874,7 +890,7 @@ palette={
 	ehomaki=1,
 }
 
-function hud_draw(time_left,score)
+function hud_draw(s,time_left)
 	camera()
 	local x,y=0,0
 	local w,h=128,16
@@ -886,9 +902,9 @@ function hud_draw(time_left,score)
 	y=2
 
 	-- time remaining
-	print("time",x,y,palette.fg)
+	print(s.strings:get("hud_time"),x,y,palette.fg)
 
-	x+=24
+	x+=32
 	w,h=128-12-x,7
  
 	local fac=time_left/game_dur
@@ -904,10 +920,10 @@ function hud_draw(time_left,score)
 	-- score
 	x=2
 	y+=8
-	print("score",x,y,palette.fg)
+	print(s.strings:get("hud_score"),x,y,palette.fg)
 
-	x+=24
-	print(score,x,y,palette.fg)
+	x+=32
+	print(s.score,x,y,palette.fg)
 	
 	-- controls
 	x,y=0,128-16
@@ -916,7 +932,12 @@ function hud_draw(time_left,score)
 	boxfill(x,y,w,h,palette.bg)
 	x+=6
 	y+=6
-	print("move: ⬅️➡️      dash: ❎",x,y,palette.fg)
+	print(
+		s.strings:get("hud_move")..
+		": ⬅️➡️    "..
+		s.strings:get("hud_dive")..
+		": ❎",x,y,palette.fg
+	)
 end
 
 function box(x,y,w,h,col)
@@ -1179,6 +1200,101 @@ function v3(x,y,z)
 	return v
 end
 
+-->8
+--localized text
+
+function strings_init()
+	return {
+		langs={
+			{code="jp",name="にほんこ゛",},
+			{code="en",name="english"},
+		},
+		lang=1,
+		get=function(self,s)
+			return self._data[s][self.langs[self.lang].code]
+		end,
+		getlangs=function(self)
+			return self.langs
+		end,
+		setlang=function(self,l)
+			self.lang=l
+		end,
+		_data={
+			hud_move={
+				jp="うこ゛く",
+				en="move",
+			},
+			hud_dive={
+				jp="タ゛イフ゛",
+				en="dive",
+			},
+			hud_time={
+				jp="し゛かん",
+				en="time",
+			},
+			hud_score={
+				jp="スコア",
+				en="score",
+			},
+			intro_1={
+				jp="おとん、せつふ゛んはな-に?",
+				en="dad, what's setsubun?",
+			},
+			intro_2={
+				jp="せつふ゛んはむかし、\n"..
+				"いちねんのいちは゛んはし゛まり\n"..
+				"のひた゛ったんた゛よ。",
+				en="a long time ago the first day\n"..
+				"of each new year was called\n"..
+				"setsubun.",
+			},
+			intro_3={
+				jp="むかしのひとはいちねんの\n"..
+				"はし゛まりに、「よいことか゛\n"..
+				"ありますように」と\faまめ\f7を\n"..
+				"まいておいのりしてたんた゛って。",
+				en="in order to bring good fortune\n"..
+				"in the new year, our ancestors\n"..
+				"would plant \fabeans.\f7",
+			},
+			intro_4={
+				jp="むかしからせつふ゛んのひに\n"..
+				"「おうちにわるいものか゛はいって\n"..
+				"くる」といわれてる、\faまめ\f7を\n"..
+				"つかっておいはらってるんた゛よ。",
+				en="since then, it was said that\n"..
+				"on setsbun bad luck will come\n"..
+				"into our homes, so we use\n"..
+				"\fabeans\f7 to drive it away.",
+			},
+			intro_5={
+				jp="\faまめ\f7はわるいものをやっつけて\n"..
+				"くれるんた゛って。すこ゛いね。\n"..
+				"「まめ」はからた゛か゛け゛んきという\n"..
+				"いみもあるんた゛って。\n",
+				en="\fabeans\f7 can drive away bad luck.\n"..
+				"isn't that cool! cool! also,\n"..
+				"in our language the word `bean'\n"..
+				"sounds like the word `healthy'.",
+			},
+			
+			how_to_play_1={
+				jp="あそひ゛かた:",
+				en="how to play:",
+			},
+			how_to_play_2={
+				jp="あなたはオニ。\n"..
+				"オニはやっつけられるのか゛\nしこ゛とて゛す。\n"..
+				"こと゛もたちか゛せつふ゛んを\nたのしめるように、\n\faまめ\f7か゛あたるよう`にか゛んは゛れ!",
+				en="you are the oni.\n"..
+				"your job is to be defeated.\n\n"..
+				"in order for your kids to\n"..
+				"enjoy setsubun, do your best\n"..
+				"to get hit by the \fabeans\f7!",
+			},
+		},
+	}
+end
 __gfx__
 0000000000000770000777000000000070777707777777770000000000000000ffffff94b3bf9ff9ff9ff9ffffffffffffffffffffffffff0007700000077000
 0000000000007770007777000004400007000070777777770000000000000000fffff9423b3f9ff9ff9ff9ffffffffffffffffffffffffff7777777700077000
@@ -1196,14 +1312,14 @@ __gfx__
 0000000000006777777600008888888807177170000000000000000000000000ffffffff000000000000000000000000f942ffff000000007070000777777777
 00000000000776677667700008a22a80077d7770000000000000000000000000ffffffff000000000000000000000000942fffff000000007000000770000007
 0000000000777776677777000088880006777760000000000000000000000000ffffffff00000000000000000000000042ffffff000000007777777777777777
-00000000007777777777770000000000006776000000000000000000000000007711111111111111115555550000000000000000000000000000000000077000
-0000000000767777777767000000000000eeee000000000000000000000000007149111111111111155555550000000000000000000000000000000000077000
-000000000066677777776600000000000eeeee600000000000000000000000001449911111111111155555550000000000000000000000000000000077777777
-0000000000067777777660000000000007eeee67000000000000000000000000148b911111111111155555550000000000000000000000000000000070077007
-0000000000067777777760000000000000eeee67000000000000000000000000188ba11111111111115555550000000000000000000000000000000070077007
-00000000000767777777700000000000007777600000000000000000000000001aaaa11111111111155555550000000000000000000000000000000077777777
-000000000077776606777700000000000776677000000000000000000000000071aa111111111111155555550000000000000000000000000000000000077000
-00000000006777000067760000000000076006600000000000000000000000007711111111111111115555550000000000000000000000000000000000077000
+00000000007777777777770000000000006776000000000000000000000000007711111111111111115555550000000077777777000770007707777700077000
+0000000000767777777767000000000000eeee000000000000000000000000007149111111111111155555550000000070000007000770000000700000077000
+000000000066677777776600000000000eeeee600000000000000000000000001449911111111111155555550000000070000007777777777700777077777777
+0000000000067777777660000000000007eeee67000000000000000000000000148b911111111111155555550000000077777777007777000007777770077007
+0000000000067777777760000000000000eeee67000000000000000000000000188ba11111111111115555550000000070000007070770707700000070077007
+00000000000767777777700000000000007777600000000000000000000000001aaaa11111111111155555550000000070000007700770070007777777777777
+000000000077776606777700000000000776677000000000000000000000000071aa111111111111155555550000000070000007077777707707000700077000
+00000000006777000067760000000000076006600000000000000000000000007711111111111111115555550000000077777777000770007707777700077000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000077000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007077070
