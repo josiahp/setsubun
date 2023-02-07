@@ -20,17 +20,13 @@ function _init()
 			flow
 			.scene(title_scn)
 			.flatmap(function(strings)
-			  return flow.scene(dialogue_scn,strings)
+				return flow.scene(dialogue_scn,strings)
+					.andthen(flow.scene(explainer_scn,strings))
+					.andthen(flow.scene(game_scn,strings))
+					.flatmap(function(score)
+						return flow.scene(results_scn, score)
+					end)
 			 end)
-			.flatmap(function(strings)
-			  return flow.scene(explainer_scn,strings)
-    end)
-			.flatmap(function(strings)
-			  return flow.scene(game_scn,strings)
-    end)
-			.flatmap(function(score)
-				return flow.scene(results_scn, score)
-			end)
 		)
 	)
 
@@ -86,11 +82,11 @@ function credits_scn(nxt)
 end
 
 function title_scn(nxt)
- local strings=strings_init()
+	local strings=strings_init()
 	local scn = {
-	 langs=strings:getlangs(),
-	 lang=1,
-	 strings=strings,
+		langs=strings:getlangs(),
+		lang=1,
+		strings=strings,
 	}
 
 	function scn.init(s)
@@ -130,8 +126,8 @@ function title_scn(nxt)
 		
 		--show languages
 		for k,v in pairs(s.langs) do
-		 print(v.name,47,y,7)
-		 y+=8
+			print(v.name,47,y,7)
+			y+=8
 		end
 	end
 
@@ -414,20 +410,21 @@ function dialogue_scn(nxt,strings)
 	}
 
 	local dialogue_flow = 
-	 flow.scene(dialogue_box,
-	 scn.strings:get("intro_1"))
-	 .andthen(
-	 flow.scene(dialogue_box,
-	 scn.strings:get("intro_2")))
-	 .andthen(
-	 flow.scene(dialogue_box, 
-	 scn.strings:get("intro_3")))
-	 .andthen(
-	 flow.scene(dialogue_box, 
-	 scn.strings:get("intro_4")))
-	 .andthen(
-	 flow.scene(dialogue_box,
-	 scn.strings:get("intro_5")))
+	flow.scene(dialogue_box,
+		scn.strings:get("intro_1"))
+	.andthen(
+		flow.scene(dialogue_box,
+		scn.strings:get("intro_2")))
+	.andthen(
+		flow.scene(dialogue_box, 
+		scn.strings:get("intro_3")))
+	.andthen(
+		flow.scene(dialogue_box, 
+		scn.strings:get("intro_4")))
+	.andthen(
+		flow.scene(dialogue_box,
+		scn.strings:get("intro_5")))
+		
 	local dialogue=nil
 	dialogue_flow.go(
 		-- next dialogue box
@@ -435,9 +432,7 @@ function dialogue_scn(nxt,strings)
 			dialogue = nxt
 		end,
 		-- end scene
-		function()
-		 nxt(strings)
-		end
+		nxt
 	)
 
 	function scn.update(s, dt)
@@ -1209,97 +1204,96 @@ end
 --localized text
 
 function strings_init()
- return {
-  langs={
-   {code="jp",name="にほんこ゛",},
-   {code="en",name="english"},
-  },
-  lang=1,
-  get=function(self,s)
-   return self._data[s][self.langs[self.lang].code]
-  end,
-  getlangs=function(self)
-   return self.langs
-  end,
-  setlang=function(self,l)
-   self.lang=l
-  end,
-  _data={
-   hud_move={
-    jp="うこ゛く",
-    en="move",
-   },
-   hud_dive={
-    jp="タ゛イフ゛",
-    en="dive",
-   },
-   hud_time={
-    jp="し゛かん",
-    en="time",
-   },
-   hud_score={
-    jp="スコア",
-    en="score",
-   },
-	  intro_1={
-	   jp="おとん、せつふ゛んはな-に?",
-	   en="dad, what's setsubun?",
-	  },
-	  intro_2={
-	   jp="せつふ゛んはむかし、\n"..
-	      "いちねんのいちは゛んはし゛まり\n"..
-	      "のひた゛ったんた゛よ。",
-	   en="a long time ago the first day\n"..
-	      "of each new year was called\n"..
-	      "setsubun.",
-	  },
-	  intro_3={
-	   jp="むかしのひとはいちねんの\n"..
-		     "はし゛まりに、「よいことか゛\n"..
-		     "ありますように」と\faまめ\f7を\n"..
-		     "まいておいのりしてたんた゛って。",
-		  en="in order to bring good fortune\n"..
-		     "in the new year, our ancestors\n"..
-		     "would plant \fabeans.\f7",
-    },
-    intro_4={
-     jp="むかしからせつふ゛んのひに\n"..
-		      "「おうちにわるいものか゛はいって\n"..
-		      "くる」といわれてる、\faまめ\f7を\n"..
-		      "つかっておいはらってるんた゛よ。",
-		   en="since then, it was said that\n"..
-		      "on setsbun bad luck will come\n"..
-		      "into our homes, so we use\n"..
-		      "\fabeans\f7 to drive it away.",
-		  },
-		  intro_5={
-		   jp="\faまめ\f7はわるいものをやっつけて\n"..
-		      "くれるんた゛って。すこ゛いね。\n"..
-		      "「まめ」はからた゛か゛け゛んきという\n"..
-		      "いみもあるんた゛って。\n",
-		   en="\fabeans\f7 can drive away bad luck.\n"..
-		      "isn't that cool! cool! also,\n"..
-		      "in our language the word `bean'\n"..
-		      "sounds like the word `healthy'.",
-		  },
-		  
-		  how_to_play_1={
-		   jp="あそひ゛かた:",
-		   en="how to play:",
-		  },
-		  how_to_play_2={
-		   jp="あなたはオニ。\n"..
-		      "オニはやっつけられるのか゛\nしこ゛とて゛す。\n"..
-		      "こと゛もたちか゛せつふ゛んを\nたのしめるように、\n\faまめ\f7か゛あたるよう`にか゛んは゛れ!",
-		   en="you are the oni.\n"..
-		      "your job is to be defeated.\n\n"..
-		      "in order for your kids to\n"..
-		      "enjoy setsubun, do your best\n"..
-		      "to get hit by the \fabeans\f7!",
-		  },
-		  
-	 },
- }
+	return {
+		langs={
+			{code="jp",name="にほんこ゛",},
+			{code="en",name="english"},
+		},
+		lang=1,
+		get=function(self,s)
+			return self._data[s][self.langs[self.lang].code]
+		end,
+		getlangs=function(self)
+			return self.langs
+		end,
+		setlang=function(self,l)
+			self.lang=l
+		end,
+		_data={
+			hud_move={
+				jp="うこ゛く",
+				en="move",
+			},
+			hud_dive={
+				jp="タ゛イフ゛",
+				en="dive",
+			},
+			hud_time={
+				jp="し゛かん",
+				en="time",
+			},
+			hud_score={
+				jp="スコア",
+				en="score",
+			},
+			intro_1={
+				jp="おとん、せつふ゛んはな-に?",
+				en="dad, what's setsubun?",
+			},
+			intro_2={
+				jp="せつふ゛んはむかし、\n"..
+				"いちねんのいちは゛んはし゛まり\n"..
+				"のひた゛ったんた゛よ。",
+				en="a long time ago the first day\n"..
+				"of each new year was called\n"..
+				"setsubun.",
+			},
+			intro_3={
+				jp="むかしのひとはいちねんの\n"..
+				"はし゛まりに、「よいことか゛\n"..
+				"ありますように」と\faまめ\f7を\n"..
+				"まいておいのりしてたんた゛って。",
+				en="in order to bring good fortune\n"..
+				"in the new year, our ancestors\n"..
+				"would plant \fabeans.\f7",
+			},
+			intro_4={
+				jp="むかしからせつふ゛んのひに\n"..
+				"「おうちにわるいものか゛はいって\n"..
+				"くる」といわれてる、\faまめ\f7を\n"..
+				"つかっておいはらってるんた゛よ。",
+				en="since then, it was said that\n"..
+				"on setsbun bad luck will come\n"..
+				"into our homes, so we use\n"..
+				"\fabeans\f7 to drive it away.",
+			},
+			intro_5={
+				jp="\faまめ\f7はわるいものをやっつけて\n"..
+				"くれるんた゛って。すこ゛いね。\n"..
+				"「まめ」はからた゛か゛け゛んきという\n"..
+				"いみもあるんた゛って。\n",
+				en="\fabeans\f7 can drive away bad luck.\n"..
+				"isn't that cool! cool! also,\n"..
+				"in our language the word `bean'\n"..
+				"sounds like the word `healthy'.",
+			},
+			
+			how_to_play_1={
+				jp="あそひ゛かた:",
+				en="how to play:",
+			},
+			how_to_play_2={
+				jp="あなたはオニ。\n"..
+				"オニはやっつけられるのか゛\nしこ゛とて゛す。\n"..
+				"こと゛もたちか゛せつふ゛んを\nたのしめるように、\n\faまめ\f7か゛あたるよう`にか゛んは゛れ!",
+				en="you are the oni.\n"..
+				"your job is to be defeated.\n\n"..
+				"in order for your kids to\n"..
+				"enjoy setsubun, do your best\n"..
+				"to get hit by the \fabeans\f7!",
+			},
+		},
+	}
 end
 __gfx__
 0000000000000770000777000000000070777707777777770000000000000000ffffff94b3bf9ff9ff9ff9ffffffffffffffffffffffffff0007700000077000
