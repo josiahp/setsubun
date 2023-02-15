@@ -146,16 +146,11 @@ function title_scn(nxt)
 		end
 		camera()
 		
-		color(7)
 		local title="\^w\^t".."せつbun"
 		local x,y=36,48
-		 print("setsubun",x+12,y+14,13)
-		for xx=-1,1,1 do
-			for yy=-1,1,1 do
-				print(title,x+xx,y+yy,13)
-			end
-		end
-		print(title, 36, 48,7)
+		outline_text(title,x,y,7,13)
+		color(7)
+		print("setsubun",x+12,y+14,13)
 		
 		y=80
 		
@@ -384,10 +379,11 @@ function game_scn(nxt)
 	function scn.update(s, dt)
 		dad:update(dt)
 		cam:update(dt,dad.pos.x-63)
-		
+
 		for k,v in pairs(s.kids) do
 			v:update(dt,scn)
 		end
+
 		for k,v in pairs(s.beans) do
 			v:update(dt,scn)
 			--collide with dad
@@ -462,7 +458,7 @@ function game_scn(nxt)
 			v:draw_target()
 		end
 		
-		local time_left=game_dur-scn.t
+		local time_left=max(0, game_dur-scn.t)
 		hud_draw(s,time_left)
 	end
 
@@ -538,6 +534,11 @@ dad_proto={
 	-- 9.8m == 156px?
 	start_diving=function(d)
 		d.state="diving"
+		if d.direction==⬅️ then
+			d.vel.x = -d.dive_spd
+		elseif d.direction==➡️ then
+			d.vel.x = d.dive_spd
+		end
 		d.dive_timer=0
 	end,
 	start_cooldown=function(d)
@@ -557,13 +558,14 @@ dad_proto={
 		end
 	end,
 	update_walking=function(d,dt)
-		local v=v3(0,0,0)
 		if btn(⬅️) then
-			v.x-=1
+			d.vel.x=-d.spd
 		elseif btn(➡️) then
-			v.x+=1
+			d.vel.x=d.spd
+		else
+			d.vel.x=0
 		end
-		d:move(dt*d.spd*v)
+		d:move(dt*d.vel)
 		-- switch to diving
 		if btn(⬅️) then
 			d.direction=⬅️
@@ -576,13 +578,7 @@ dad_proto={
 		end
 	end,
 	update_diving=function(d,dt)
-		local v=v3(0,0,0)
-		if d.direction==⬅️ then
-			v.x-=1
-		elseif d.direction==➡️ then
-			v.x+=1
-		end
-		d:move(dt*d.dive_spd*v)
+		d:move(dt*d.vel)
 		-- switch to cooldown
 		d.dive_timer+=dt
 		if d.dive_timer>=d.dive_dur then
@@ -590,6 +586,9 @@ dad_proto={
 		end
 	end,
 	update_cooldown=function(d,dt)
+		d.vel *= 0.6
+		d:move(dt*d.vel)
+		
 		-- switch back to walking
 		d.cooldown_timer+=dt
 		if d.cooldown_timer>=d.cooldown_dur then
@@ -603,20 +602,24 @@ dad_proto={
 	end,
 	draw=function(d)
 		local fac=0
+		local dx,dy=0,-12
+		
 		if d.state=="diving" then
 			fac=d.dive_timer/d.dive_dur
 		elseif d.state=="cooldown" then
 			fac=1
 		end
+		dy+=fac*8
+		
 		local rot=0.25*fac
 		local flip=d.direction==⬅️
 		local x,y=project(d.pos)
 		-- dad sprite
-		pd_rotate(x,y-12,rot,5.5,61,3,flip)
+		pd_rotate(x,y+dy,rot,5.5,61,3,flip)
 		--dad's mask
 		local sign=flip and -1 or 1
 		local mask_x,mask_y=rotate(sign*rot,0,-2)
-		pd_rotate(x+mask_x,y-12+mask_y,rot,2,63,1,flip)
+		pd_rotate(x+mask_x,y+dy+mask_y,rot,2,63,1,flip)
 	end,
 	draw_shadow=function(d)
 		local x,y=project(d.pos)
@@ -628,6 +631,7 @@ dad_meta={__index=dad_proto}
 function dad_new(pos)
 	local dad={
 		pos=pos,
+		vel=v3(0,0,0),
 		spd=50,
 		dive_spd=150,
 		dive_dur=0.2,
@@ -1045,6 +1049,15 @@ function boxfill(x,y,w,h,col)
 	rectfill(x,y,x+w,y+h,col)
 end
 
+function outline_text(text,x,y,c,o)
+	for xx=-1,1,1 do
+		for yy=-1,1,1 do
+			print(text,x+xx,y+yy,o)
+		end
+	end
+	print(text,x,y,c)
+end
+
 -- dialogue
 textspeed=20 --characters per second
 
@@ -1333,6 +1346,10 @@ function strings_init()
 			hud_score={
 				jp="スコア",
 				en="score",
+			},
+			time_up={
+				jp="しゅうりょう",
+				en="time's up!",
 			},
 			intro_1={
 				jp="おとん、せつふ゛んはな-に?",
