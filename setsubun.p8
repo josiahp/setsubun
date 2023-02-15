@@ -377,7 +377,7 @@ function game_scn(nxt)
 	end
 
 	function scn.update(s, dt)
-		dad:update(dt)
+		dad:update(dt,scn)
 		cam:update(dt,dad.pos.x-63)
 
 		for k,v in pairs(s.kids) do
@@ -388,10 +388,10 @@ function game_scn(nxt)
 			v:update(dt,scn)
 			--collide with dad
 			if not v.collided
-				and v.pos.x>=dad.pos.x-8
-				and v.pos.x<=dad.pos.x+8
-				and v.pos.y>=dad.pos.y
-				and v.pos.y<=dad.pos.y+24
+				and v.pos.x>=bbox.x0
+				and v.pos.x<=bbox.x1
+				and v.pos.y>=bbox.y0
+				and v.pos.y<=bbox.y1
 			then
 				s:bean_hit(v)
 			end
@@ -586,7 +586,7 @@ dad_proto={
 		end
 	end,
 	update_cooldown=function(d,dt)
-		d.vel *= 0.6
+		d.vel *= d.dive_friction
 		d:move(dt*d.vel)
 		
 		-- switch back to walking
@@ -600,15 +600,31 @@ dad_proto={
 		d.pos.x=mid(mapinfo.char_minx,d.pos.x,mapinfo.char_maxx)
 		d.pos.z=mid(mapinfo.char_minz,d.pos.z,mapinfo.char_maxz)
 	end,
-	draw=function(d)
+	dive_fac=function(d)
 		local fac=0
-		local dx,dy=0,-12
-		
 		if d.state=="diving" then
 			fac=d.dive_timer/d.dive_dur
 		elseif d.state=="cooldown" then
 			fac=1
 		end
+		return fac
+	end,
+	bbox=function(d)
+		local r = 0.25 * d:dive_fac()
+		local w = 12 - 12*sin(r)
+		local h = 12 + 12*cos(r)
+		return {
+			w=w,
+			h=h,
+			x0=d.pos.x-0.5*w,
+			x1=d.pos.x+0.5*w,
+			y0=d.pos.y,
+			y1=d.pos.y+h,
+		}
+	end,
+	draw=function(d)
+		local fac=d:dive_fac()
+		local dx,dy=0,-12
 		dy+=fac*8
 		
 		local rot=0.25*fac
@@ -616,14 +632,21 @@ dad_proto={
 		local x,y=project(d.pos)
 		-- dad sprite
 		pd_rotate(x,y+dy,rot,5.5,61,3,flip)
-		--dad's mask
+		-- dad's mask
 		local sign=flip and -1 or 1
 		local mask_x,mask_y=rotate(sign*rot,0,-2)
 		pd_rotate(x+mask_x,y+dy+mask_y,rot,2,63,1,flip)
+	
+		if debug then
+			local bbox = d:bbox()
+			box(x-0.5*bbox.w, y-bbox.h, bbox.w, bbox.h, 8)
+		end
 	end,
 	draw_shadow=function(d)
+		local fac=d:dive_fac()
 		local x,y=project(d.pos)
-		ovalfill(x-6,y-3,x+6,y+1)
+		local w=6+fac*6
+		ovalfill(x-w,y-3,x+w,y+1)
 	end
 }
 dad_meta={__index=dad_proto}
@@ -636,6 +659,7 @@ function dad_new(pos)
 		dive_spd=150,
 		dive_dur=0.2,
 		dive_timer=0,
+		dive_friction=0.6,
 		cooldown_dur=0.5,
 		cooldown_timer=0,
 		state="walking",
