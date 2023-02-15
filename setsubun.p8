@@ -384,6 +384,7 @@ function game_scn(nxt)
 			v:update(dt,scn)
 		end
 
+		local bbox=dad:bbox()
 		for k,v in pairs(s.beans) do
 			v:update(dt,scn)
 			--collide with dad
@@ -476,7 +477,7 @@ function game_scn(nxt)
 		-- add all beans
 		add_all(s.beans,beans)
 	end
-	function scn.add_bark(s,bark)
+	function scn.add_effect(s,bark)
 		add(s.effects,bark)
 	end
 
@@ -539,6 +540,7 @@ dad_proto={
 		elseif d.direction==➡️ then
 			d.vel.x = d.dive_spd
 		end
+		d.emitter=cocreate(particle_trail)
 		d.dive_timer=0
 	end,
 	start_cooldown=function(d)
@@ -548,16 +550,23 @@ dad_proto={
 	start_walking=function(d)
 		d.state="walking"
 	end,
-	update=function(d,dt)
+	update=function(d,dt,scn)
 		if d.state == "walking" then
-			d:update_walking(dt)
+			d:update_walking(dt,scn)
 		elseif d.state == "diving" then
-			d:update_diving(dt)
+			d:update_diving(dt,scn)
 		elseif d.state == "cooldown" then
-			d:update_cooldown(dt)
+			d:update_cooldown(dt,scn)
+		end
+
+		if d.emitter and costatus(d.emitter) then
+			local nxt, p = coresume(d.emitter, d)
+			if nxt and p then
+				scn:add_effect(p)
+			end
 		end
 	end,
-	update_walking=function(d,dt)
+	update_walking=function(d,dt,scn)
 		if btn(⬅️) then
 			d.vel.x=-d.spd
 		elseif btn(➡️) then
@@ -577,7 +586,7 @@ dad_proto={
 			return
 		end
 	end,
-	update_diving=function(d,dt)
+	update_diving=function(d,dt,scn)
 		d:move(dt*d.vel)
 		-- switch to cooldown
 		d.dive_timer+=dt
@@ -585,7 +594,7 @@ dad_proto={
 			d:start_cooldown()
 		end
 	end,
-	update_cooldown=function(d,dt)
+	update_cooldown=function(d,dt,scn)
 		d.vel *= d.dive_friction
 		d:move(dt*d.vel)
 		
@@ -651,6 +660,20 @@ dad_proto={
 }
 dad_meta={__index=dad_proto}
 
+function particle_trail(dad)
+	local tstart=time()
+	local ttl=0.4
+	while time()-tstart<ttl do
+		local pos = dad.pos
+		-- wait 2 extra frames
+		yield()
+		yield()
+		-- then spawn a new particle
+		local p=particle_new(pos)
+		yield(p)
+	end
+end
+
 function dad_new(pos)
 	local dad={
 		pos=pos,
@@ -659,7 +682,7 @@ function dad_new(pos)
 		dive_spd=150,
 		dive_dur=0.2,
 		dive_timer=0,
-		dive_friction=0.6,
+		dive_friction=0.7,
 		cooldown_dur=0.5,
 		cooldown_timer=0,
 		state="walking",
@@ -726,7 +749,7 @@ kids_proto={
 	end,
 	throw_beans=function(k,scn)
 		local bark=barks_new("おにはそと!",k.pos+v3(0,20,0))
-		scn:add_bark(bark)
+		scn:add_effect(bark)
 		local vel=vtoward(k.target.pos,k.pos)
 		local bg=beans_new(k.pos,vel,3)
 		scn:add_beans(bg)
