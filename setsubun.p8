@@ -11,26 +11,26 @@ function _init()
 	gravity=9.81*2
 	drag=0.1
 	game_dur=25.5 -- seconds
+	strings=strings_init()
 
 	map_init()
 
+	-- scene switching
 	scn=nil
 	game_flow=flow.scene(credits_scn)
 	.andthen(
 		-- main game loop
 		flow.forever(
-			flow
-			.scene(title_scn)
-			.flatmap(function(strings)
-				return flow.scene(dialogue_scn,strings)
-					.andthen(flow.scene(explainer_scn,strings))
-					.andthen(flow.scene(game_scn,strings))
-					.flatmap(function(score)
-						return flow.scene(results_scn, score)
-					end)
-			 end)
+			flow.scene(title_scn)
+			.andthen(flow.scene(dialogue_scn))
+			.andthen(flow.scene(explainer_scn))
+			.andthen(flow.scene(game_scn))
+			.flatmap(function(score)
+				return flow.scene(results_scn, score)
+			end)
 		)
 	)
+
 	game_flow.go(
 		-- transition to next scene
 		function(nxt)
@@ -101,11 +101,9 @@ function spawn_beans(beans)
 end
 
 function title_scn(nxt)
-	local strings=strings_init()
 	local scn = {
 		langs=strings:getlangs(),
 		lang=1,
-		strings=strings,
 	}
 	local beans={}
 	local make_beans=cocreate(spawn_beans)
@@ -117,14 +115,14 @@ function title_scn(nxt)
 	function scn.update(s,dt)
 		if btnp(⬆️) then
 			s.lang=max(s.lang-1,1)
-			s.strings:setlang(s.lang)
+			strings:setlang(s.lang)
 		elseif btnp(⬇️) then
 			s.lang=min(s.lang+1,#s.langs)
-			s.strings:setlang(s.lang)
+			strings:setlang(s.lang)
 		end
 		if btnp(❎) then
 			coresume(make_beans, nil)
-			nxt(s.strings)
+			nxt()
 		end
 
 		-- update beans
@@ -174,12 +172,11 @@ function title_scn(nxt)
 	return scn
 end
 
-function explainer_scn(nxt,strings)
+function explainer_scn(nxt)
 	local scn = {
 		timer=0,
 		dur=1,
 		is_done=false,
-		strings=strings,
 	}
 
 	function scn.update(s,dt)
@@ -187,7 +184,7 @@ function explainer_scn(nxt,strings)
 		if s.timer<s.dur then return end
 		s.is_done=true
 		if btnp(❎) then
-			nxt(s.strings)
+			nxt()
 		end
 	end
 
@@ -195,8 +192,8 @@ function explainer_scn(nxt,strings)
 		cls(1)
 		color(7)
 		
-		print(s.strings:get("how_to_play_1"), 40, 24)
-		print(s.strings:get("how_to_play_2"), 4, 48)
+		print(strings:get("how_to_play_1"), 40, 24)
+		print(strings:get("how_to_play_2"), 4, 48)
 
 		if s.is_done then
 			print("press ❎ to start", 32, 102)
@@ -365,14 +362,13 @@ end
 -->8
 --game scene
 
-function game_scn(nxt,strings)
+function game_scn(nxt)
 	local scn={
 		t=0,
 		score=0,
 		effects={},
 		beans={},
 		kids={},
-		strings=strings,
 	}
 
 	add(scn.kids, kids_new(v3(32,0,14),8))
@@ -427,6 +423,21 @@ function game_scn(nxt,strings)
 		cam:draw()
 		map_draw()
 		
+		-- draw shadows first
+		-- large shadows get dithered fill
+		color(5)
+		fillp(0b1000001010000010.1)
+		dad:draw_shadow()
+		for k,v in pairs(s.kids) do
+			v:draw_shadow()
+		end
+		fillp()
+		-- small shadows get solid fill
+		for k,v in pairs(s.beans) do
+			v:draw_shadow()
+		end
+		
+		-- draw actors
 		local actors={}
 		add(actors,dad)
 		add_all(actors,s.kids)
@@ -446,6 +457,9 @@ function game_scn(nxt,strings)
 		--draw effects on top
 		for k,v in pairs(s.effects) do
 			v:draw()
+		end
+		for k,v in pairs(s.kids) do
+			v:draw_target()
 		end
 		
 		local time_left=game_dur-scn.t
@@ -474,26 +488,24 @@ function game_scn(nxt,strings)
 end
 
 
-function dialogue_scn(nxt,strings)
-	local scn={
-		strings=strings,
-	}
+function dialogue_scn(nxt)
+	local scn={}
 
 	local dialogue_flow = 
 	flow.scene(dialogue_box,
-		scn.strings:get("intro_1"))
+		strings:get("intro_1"))
 	.andthen(
 		flow.scene(dialogue_box,
-		scn.strings:get("intro_2")))
+		strings:get("intro_2")))
 	.andthen(
 		flow.scene(dialogue_box, 
-		scn.strings:get("intro_3")))
+		strings:get("intro_3")))
 	.andthen(
 		flow.scene(dialogue_box, 
-		scn.strings:get("intro_4")))
+		strings:get("intro_4")))
 	.andthen(
 		flow.scene(dialogue_box,
-		scn.strings:get("intro_5")))
+		strings:get("intro_5")))
 		
 	local dialogue=nil
 	dialogue_flow.go(
@@ -606,6 +618,10 @@ dad_proto={
 		local mask_x,mask_y=rotate(sign*rot,0,-2)
 		pd_rotate(x+mask_x,y-12+mask_y,rot,2,63,1,flip)
 	end,
+	draw_shadow=function(d)
+		local x,y=project(d.pos)
+		ovalfill(x-6,y-3,x+6,y+1)
+	end
 }
 dad_meta={__index=dad_proto}
 
@@ -696,9 +712,15 @@ kids_proto={
 		pal(14,k.shirtcolor)
 		spr(20,x-4,y-16,1,2,flip)
 		pal(14,14)
+	end,
+	draw_target=function(k)
 		if k.target then
 			k.target:draw()
 		end
+	end,
+	draw_shadow=function(k)
+		local x,y=project(k.pos)
+		ovalfill(x-3,y-2,x+3,y)
 	end,
 }
 kids_meta={__index=kids_proto}
@@ -734,7 +756,7 @@ bean_proto={
 		--collide with floor
 		if y1<=0 then
 			b.collided=true
-			b.vel.y*=-1
+			b.vel.y*=-0.75 --lose some energy per bounce
 		end
 		--collide with wall
 		if x1<=minx or x1>=maxx then
@@ -750,7 +772,7 @@ bean_proto={
 		-- to the ground and low
 		-- velocity, lets stop
 		-- the physics
-		if abs(b.vel.y)<1 and abs(b.pos.y+b.vel.y)<5 then
+		if abs(b.vel.y)<0.5 and abs(b.pos.y+b.vel.y)<4 then
 			b.pos.y=0
 			b.vel.y=0
 			b.grounded=true
@@ -762,6 +784,11 @@ bean_proto={
 		local x,y=project(b.pos)
 		spr(3,x-4,y-4)
 	end,
+	draw_shadow=function(b)
+	 local shadow_pos=v3(b.pos.x,0,b.pos.z)
+		local x,y=project(shadow_pos)
+		ovalfill(x-1,y+1,x+1,y+2)
+	end
 }
 bean_meta={__index=bean_proto}
 
@@ -972,7 +999,7 @@ function hud_draw(s,time_left)
 	y=2
 
 	-- time remaining
-	print(s.strings:get("hud_time"),x,y,palette.fg)
+	print(strings:get("hud_time"),x,y,palette.fg)
 
 	x+=32
 	w,h=128-12-x,7
@@ -990,7 +1017,7 @@ function hud_draw(s,time_left)
 	-- score
 	x=2
 	y+=8
-	print(s.strings:get("hud_score"),x,y,palette.fg)
+	print(strings:get("hud_score"),x,y,palette.fg)
 
 	x+=32
 	print(s.score,x,y,palette.fg)
@@ -1003,9 +1030,9 @@ function hud_draw(s,time_left)
 	x+=6
 	y+=6
 	print(
-		s.strings:get("hud_move")..
+		strings:get("hud_move")..
 		": ⬅️➡️    "..
-		s.strings:get("hud_dive")..
+		strings:get("hud_dive")..
 		": ❎",x,y,palette.fg
 	)
 end
@@ -1281,7 +1308,8 @@ function strings_init()
 		},
 		lang=1,
 		get=function(self,s)
-			return self._data[s][self.langs[self.lang].code]
+			local code = self.langs[self.lang].code
+			return self._data[s][code]
 		end,
 		getlangs=function(self)
 			return self.langs
