@@ -10,7 +10,7 @@ function _init()
 	-- constants
 	gravity=9.81*2
 	drag=0.1
-	game_dur=25.5 -- seconds
+	game_dur=24.5 -- seconds
 	strings=strings_init()
 
 	map_init()
@@ -146,16 +146,11 @@ function title_scn(nxt)
 		end
 		camera()
 		
-		color(7)
 		local title="\^w\^t".."せつbun"
 		local x,y=36,48
-		 print("setsubun",x+12,y+14,13)
-		for xx=-1,1,1 do
-			for yy=-1,1,1 do
-				print(title,x+xx,y+yy,13)
-			end
-		end
-		print(title, 36, 48,7)
+		outline_text(title,x,y,7,13)
+		color(7)
+		print("setsubun",x+12,y+14,13)
 		
 		y=80
 		
@@ -382,12 +377,16 @@ function game_scn(nxt)
 	end
 
 	function scn.update(s, dt)
-		dad:update(dt)
-		cam:update(dt,dad.pos.x-63)
-		
-		for k,v in pairs(s.kids) do
-			v:update(dt,scn)
+	 -- stop the action
+		if s.t<game_dur then
+			dad:update(dt)		
+			for k,v in pairs(s.kids) do
+				v:update(dt,scn)
+			end
 		end
+		
+		cam:update(dt,dad.pos.x-63)
+
 		for k,v in pairs(s.beans) do
 			v:update(dt,scn)
 			--collide with dad
@@ -413,7 +412,8 @@ function game_scn(nxt)
 		end
 		
 		s.t += dt
-		if s.t>game_dur then
+		-- wait an extra second on "time's up!" message
+		if s.t>game_dur+1 then
 			nxt(s.score)
 		end
 	end
@@ -462,8 +462,16 @@ function game_scn(nxt)
 			v:draw_target()
 		end
 		
-		local time_left=game_dur-scn.t
+		local time_left=max(0, game_dur-scn.t)
 		hud_draw(s,time_left)
+		
+		-- draw time warning
+		local t_warn=ceil(time_left)
+		if t_warn<=3 and t_warn>0 then
+			outline_text(t_warn,62,36,7,6)
+		elseif t_warn==0 then
+			outline_text(strings:get("time_up"),44,36,7,6)
+		end
 	end
 
 	function scn.destroy()
@@ -1045,6 +1053,15 @@ function boxfill(x,y,w,h,col)
 	rectfill(x,y,x+w,y+h,col)
 end
 
+function outline_text(text,x,y,c,o)
+	for xx=-1,1,1 do
+		for yy=-1,1,1 do
+			print(text,x+xx,y+yy,o)
+		end
+	end
+	print(text,x,y,c)
+end
+
 -- dialogue
 textspeed=20 --characters per second
 
@@ -1333,6 +1350,10 @@ function strings_init()
 			hud_score={
 				jp="スコア",
 				en="score",
+			},
+			time_up={
+				jp="しゅうりょう",
+				en="time's up!",
 			},
 			intro_1={
 				jp="おとん、せつふ゛んはな-に?",
