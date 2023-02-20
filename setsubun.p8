@@ -146,16 +146,11 @@ function title_scn(nxt)
 		end
 		camera()
 		
-		color(7)
 		local title="\^w\^t".."せつbun"
 		local x,y=36,48
-		 print("setsubun",x+12,y+14,13)
-		for xx=-1,1,1 do
-			for yy=-1,1,1 do
-				print(title,x+xx,y+yy,13)
-			end
-		end
-		print(title, 36, 48,7)
+		outline_text(title,x,y,7,13)
+		color(7)
+		print("setsubun",x+12,y+14,13)
 		
 		y=80
 		
@@ -382,20 +377,22 @@ function game_scn(nxt)
 	end
 
 	function scn.update(s, dt)
-		dad:update(dt)
+		dad:update(dt,scn)
 		cam:update(dt,dad.pos.x-63)
-		
+
 		for k,v in pairs(s.kids) do
 			v:update(dt,scn)
 		end
+
+		local bbox=dad:bbox()
 		for k,v in pairs(s.beans) do
 			v:update(dt,scn)
 			--collide with dad
 			if not v.collided
-				and v.pos.x>=dad.pos.x-8
-				and v.pos.x<=dad.pos.x+8
-				and v.pos.y>=dad.pos.y
-				and v.pos.y<=dad.pos.y+24
+				and v.pos.x>=bbox.x0
+				and v.pos.x<=bbox.x1
+				and v.pos.y>=bbox.y0
+				and v.pos.y<=bbox.y1
 			then
 				s:bean_hit(v)
 			end
@@ -462,7 +459,7 @@ function game_scn(nxt)
 			v:draw_target()
 		end
 		
-		local time_left=game_dur-scn.t
+		local time_left=max(0, game_dur-scn.t)
 		hud_draw(s,time_left)
 	end
 
@@ -480,7 +477,7 @@ function game_scn(nxt)
 		-- add all beans
 		add_all(s.beans,beans)
 	end
-	function scn.add_bark(s,bark)
+	function scn.add_effect(s,bark)
 		add(s.effects,bark)
 	end
 
@@ -564,6 +561,12 @@ dad_proto={
 	-- 9.8m == 156px?
 	start_diving=function(d)
 		d.state="diving"
+		if d.direction==⬅️ then
+			d.vel.x = -d.dive_spd
+		elseif d.direction==➡️ then
+			d.vel.x = d.dive_spd
+		end
+		d.emitter=cocreate(particle_trail)
 		d.dive_timer=0
 	end,
 	start_cooldown=function(d)
@@ -573,23 +576,31 @@ dad_proto={
 	start_walking=function(d)
 		d.state="walking"
 	end,
-	update=function(d,dt)
+	update=function(d,dt,scn)
 		if d.state == "walking" then
-			d:update_walking(dt)
+			d:update_walking(dt,scn)
 		elseif d.state == "diving" then
-			d:update_diving(dt)
+			d:update_diving(dt,scn)
 		elseif d.state == "cooldown" then
-			d:update_cooldown(dt)
+			d:update_cooldown(dt,scn)
+		end
+
+		if d.emitter and costatus(d.emitter) then
+			local nxt, p = coresume(d.emitter, d)
+			if nxt and p then
+				scn:add_effect(p)
+			end
 		end
 	end,
-	update_walking=function(d,dt)
-		local v=v3(0,0,0)
+	update_walking=function(d,dt,scn)
 		if btn(⬅️) then
-			v.x-=1
+			d.vel.x=-d.spd
 		elseif btn(➡️) then
-			v.x+=1
+			d.vel.x=d.spd
+		else
+			d.vel.x=0
 		end
-		d:move(dt*d.spd*v)
+		d:move(dt*d.vel)
 		-- switch to diving
 		if btn(⬅️) then
 			d.direction=⬅️
@@ -601,21 +612,18 @@ dad_proto={
 			return
 		end
 	end,
-	update_diving=function(d,dt)
-		local v=v3(0,0,0)
-		if d.direction==⬅️ then
-			v.x-=1
-		elseif d.direction==➡️ then
-			v.x+=1
-		end
-		d:move(dt*d.dive_spd*v)
+	update_diving=function(d,dt,scn)
+		d:move(dt*d.vel)
 		-- switch to cooldown
 		d.dive_timer+=dt
 		if d.dive_timer>=d.dive_dur then
 			d:start_cooldown()
 		end
 	end,
-	update_cooldown=function(d,dt)
+	update_cooldown=function(d,dt,scn)
+		d.vel *= d.dive_friction
+		d:move(dt*d.vel)
+		
 		-- switch back to walking
 		d.cooldown_timer+=dt
 		if d.cooldown_timer>=d.cooldown_dur then
@@ -627,37 +635,80 @@ dad_proto={
 		d.pos.x=mid(mapinfo.char_minx,d.pos.x,mapinfo.char_maxx)
 		d.pos.z=mid(mapinfo.char_minz,d.pos.z,mapinfo.char_maxz)
 	end,
-	draw=function(d)
+	dive_fac=function(d)
 		local fac=0
 		if d.state=="diving" then
 			fac=d.dive_timer/d.dive_dur
 		elseif d.state=="cooldown" then
 			fac=1
 		end
+		return fac
+	end,
+	bbox=function(d)
+		local r = 0.25 * d:dive_fac()
+		local w = 12 - 12*sin(r)
+		local h = 12 + 12*cos(r)
+		return {
+			w=w,
+			h=h,
+			x0=d.pos.x-0.5*w,
+			x1=d.pos.x+0.5*w,
+			y0=d.pos.y,
+			y1=d.pos.y+h,
+		}
+	end,
+	draw=function(d)
+		local fac=d:dive_fac()
+		local dx,dy=0,-12
+		dy+=fac*8
+		
 		local rot=0.25*fac
 		local flip=d.direction==⬅️
 		local x,y=project(d.pos)
 		-- dad sprite
-		pd_rotate(x,y-12,rot,5.5,61,3,flip)
-		--dad's mask
+		pd_rotate(x,y+dy,rot,5.5,61,3,flip)
+		-- dad's mask
 		local sign=flip and -1 or 1
 		local mask_x,mask_y=rotate(sign*rot,0,-2)
-		pd_rotate(x+mask_x,y-12+mask_y,rot,2,63,1,flip)
+		pd_rotate(x+mask_x,y+dy+mask_y,rot,2,63,1,flip)
+	
+		if debug then
+			local bbox = d:bbox()
+			box(x-0.5*bbox.w, y-bbox.h, bbox.w, bbox.h, 8)
+		end
 	end,
 	draw_shadow=function(d)
+		local fac=d:dive_fac()
 		local x,y=project(d.pos)
-		ovalfill(x-6,y-3,x+6,y+1)
+		local w=6+fac*6
+		ovalfill(x-w,y-3,x+w,y+1)
 	end
 }
 dad_meta={__index=dad_proto}
 
+function particle_trail(dad)
+	local tstart=time()
+	local ttl=0.4
+	while time()-tstart<ttl do
+		local pos = dad.pos
+		-- wait 2 extra frames
+		yield()
+		yield()
+		-- then spawn a new particle
+		local p=particle_new(pos)
+		yield(p)
+	end
+end
+
 function dad_new(pos)
 	local dad={
 		pos=pos,
+		vel=v3(0,0,0),
 		spd=50,
 		dive_spd=150,
 		dive_dur=0.2,
 		dive_timer=0,
+		dive_friction=0.7,
 		cooldown_dur=0.5,
 		cooldown_timer=0,
 		state="walking",
@@ -724,7 +775,7 @@ kids_proto={
 	end,
 	throw_beans=function(k,scn)
 		local bark=barks_new("おにはそと!",k.pos+v3(0,20,0))
-		scn:add_bark(bark)
+		scn:add_effect(bark)
 		local vel=vtoward(k.target.pos,k.pos)
 		local bg=beans_new(k.pos,vel,3)
 		scn:add_beans(bg)
@@ -1071,6 +1122,15 @@ function boxfill(x,y,w,h,col)
 	rectfill(x,y,x+w,y+h,col)
 end
 
+function outline_text(text,x,y,c,o)
+	for xx=-1,1,1 do
+		for yy=-1,1,1 do
+			print(text,x+xx,y+yy,o)
+		end
+	end
+	print(text,x,y,c)
+end
+
 function is_latin(char)
 	local code=ord(char)
 	return code>=32 and code<=127
@@ -1391,6 +1451,10 @@ function strings_init()
 				jp="スコア",
 				en="score",
 			},
+			time_up={
+				jp="しゅうりょう",
+				en="time's up!",
+      },
 			kids={
 				jp="こと゛も",
 				en="kids",
