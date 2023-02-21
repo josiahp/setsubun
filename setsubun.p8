@@ -88,8 +88,11 @@ function spawn_beans(beans)
 		for i=1,5 do
 			yield()
 		end
-		-- then spawn a new bean
-		local x=rnd(128)
+		--then spawn a new bean
+		-- move the bean in the +x dir
+		-- so that it doesn't collide
+		-- with the "wall" at x=0
+		local x=64+rnd(128)
 		local y=128+28+rnd(64)
 		local z=0
 		local b=bean_new(
@@ -140,7 +143,9 @@ function title_scn(nxt)
 	function scn.draw(s)
 		cls(1)
 		
-		camera(0,-28)
+		--offset the camera
+		-- to center the falling beans
+		camera(64,-28)
 		for k,v in pairs(beans) do
 			v:draw()
 		end
@@ -831,9 +836,12 @@ bean_proto={
 		
 		local x1,y1=(b.pos+b.vel):unpack()
 		--collide with floor
-		if y1<=0 then
+		if y1<=0 and b.vel.y<0 then
 			b.collided=true
 			b.vel.y*=-0.75 --lose some energy per bounce
+			-- deflect bounce by a small random angle
+			local angle = rnd(0.2)-0.1
+			b.vel.x,b.vel.y=rotate(angle,b.vel.x,b.vel.y)
 		end
 		--collide with wall
 		if x1<=minx or x1>=maxx then
@@ -849,9 +857,10 @@ bean_proto={
 		-- to the ground and low
 		-- velocity, lets stop
 		-- the physics
-		if abs(b.vel.y)<0.5 and abs(b.pos.y+b.vel.y)<4 then
+		if abs(b.vel.y)<1 and abs(b.pos.y+b.vel.y)<2 then
 			b.pos.y=0
 			b.vel.y=0
+			b.vel.x=0
 			b.grounded=true
 		end
 		
