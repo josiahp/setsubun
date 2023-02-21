@@ -379,13 +379,13 @@ function game_scn(nxt)
 	function scn.update(s, dt)
 	 -- stop the action
 		if s.t<game_dur then
-			dad:update(dt)		
+			dad:update(dt,scn)
 			for k,v in pairs(s.kids) do
 				v:update(dt,scn)
 			end
 		end
 		
-		cam:update(dt,dad.pos.x-63)
+		cam:update(dt,dad.pos.x-64+8)
 
 		local bbox=dad:bbox()
 		for k,v in pairs(s.beans) do
@@ -471,7 +471,9 @@ function game_scn(nxt)
 		if t_warn<=3 and t_warn>0 then
 			outline_text(t_warn,62,36,7,6)
 		elseif t_warn==0 then
-			outline_text(strings:get("time_up"),44,36,7,6)
+			local txt=strings:get("time_up")
+			local x=64-textwidth(txt)/2
+			outline_text(txt,x,36,7,6)
 		end
 	end
 
@@ -1143,16 +1145,33 @@ function outline_text(text,x,y,c,o)
 	print(text,x,y,c)
 end
 
-function is_latin(char)
-	local code=ord(char)
-	return code>=32 and code<=127
-end
 
 function textwidth(str)
+	local function is_latin(code)
+		local is_upper=code>=67 and code<=90
+		local is_lower=code>=97 and code<=122
+		return is_upper or is_lower
+	end
+	
+	local function is_kana(code)
+		return code>=154
+	end
+
+	local symbols={}
+	symbols[32]=3 -- [space]
+	symbols[33]=3 -- !
+	symbols[39]=3 -- '
+
 	local len=0
 	for i=1,#str do
-		local c=sub(str,i,i)
-		len+=is_latin(c) and 5 or 8
+		local c=ord(sub(str,i,i))
+		if is_latin(c) then
+			len+=4
+		elseif is_kana(c) then
+			len+=8
+		else
+			len+=symbols[c] or 5 -- assume default width
+		end
 	end
 	return len
 end
