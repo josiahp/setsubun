@@ -468,12 +468,15 @@ function game_scn(nxt)
 		
 		-- draw time warning
 		local t_warn=ceil(time_left)
+		local txt
 		if t_warn<=3 and t_warn>0 then
-			outline_text(t_warn,62,36,7,8)
+			txt=""..t_warn
 		elseif t_warn==0 then
-			local txt=strings:get("time_up")
-			local x=64-textwidth(txt)/2
-			outline_text(txt,x,36,7,8)
+			txt=strings:get("time_up")
+		end
+		if txt then
+			local x=64-2*textwidth(txt)/2
+			outline_text("\^w\^t"..txt,x,36,7,8)
 		end
 	end
 
