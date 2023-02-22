@@ -10,7 +10,7 @@ function _init()
 	-- constants
 	gravity=9.81*2
 	drag=0.1
-	game_dur=25.5 -- seconds
+	game_dur=24.5 -- seconds
 	strings=strings_init()
 
 	map_init()
@@ -377,12 +377,15 @@ function game_scn(nxt)
 	end
 
 	function scn.update(s, dt)
-		dad:update(dt,scn)
-		cam:update(dt,dad.pos.x-63)
-
-		for k,v in pairs(s.kids) do
-			v:update(dt,scn)
+	 -- stop the action
+		if s.t<game_dur then
+			dad:update(dt,scn)
+			for k,v in pairs(s.kids) do
+				v:update(dt,scn)
+			end
 		end
+		
+		cam:update(dt,dad.pos.x-64+8)
 
 		local bbox=dad:bbox()
 		for k,v in pairs(s.beans) do
@@ -410,7 +413,8 @@ function game_scn(nxt)
 		end
 		
 		s.t += dt
-		if s.t>game_dur then
+		-- wait an extra second on "time's up!" message
+		if s.t>game_dur+1 then
 			nxt(s.score)
 		end
 	end
@@ -461,6 +465,19 @@ function game_scn(nxt)
 		
 		local time_left=max(0, game_dur-scn.t)
 		hud_draw(s,time_left)
+		
+		-- draw time warning
+		local t_warn=ceil(time_left)
+		local txt
+		if t_warn<=3 and t_warn>0 then
+			txt=""..t_warn
+		elseif t_warn==0 then
+			txt=strings:get("time_up")
+		end
+		if txt then
+			local x=64-2*textwidth(txt)/2
+			outline_text("\^w\^t"..txt,x,36,7,8)
+		end
 	end
 
 	function scn.destroy()
@@ -1131,16 +1148,33 @@ function outline_text(text,x,y,c,o)
 	print(text,x,y,c)
 end
 
-function is_latin(char)
-	local code=ord(char)
-	return code>=32 and code<=127
-end
 
 function textwidth(str)
+	local function is_latin(code)
+		local is_upper=code>=67 and code<=90
+		local is_lower=code>=97 and code<=122
+		return is_upper or is_lower
+	end
+	
+	local function is_kana(code)
+		return code>=154
+	end
+
+	local symbols={}
+	symbols[32]=3 -- [space]
+	symbols[33]=3 -- !
+	symbols[39]=3 -- '
+
 	local len=0
 	for i=1,#str do
-		local c=sub(str,i,i)
-		len+=is_latin(c) and 5 or 8
+		local c=ord(sub(str,i,i))
+		if is_latin(c) then
+			len+=4
+		elseif is_kana(c) then
+			len+=8
+		else
+			len+=symbols[c] or 5 -- assume default width
+		end
 	end
 	return len
 end
