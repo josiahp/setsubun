@@ -309,8 +309,15 @@ function results_scn(nxt, score)
 
 		--settle the result
 		if s.scorecounter==score then
+			--fortune is random, but better scores
+			-- should lead to better results
+			-- every 5 beans improves your fortune by 1 rank
+			-- 35 beans needed to guarantee best fortune
+			local base = score/5
+			local odds = flr(1 + base + rnd(#kanji - base))
+			local idx = mid(1, odds, #kanji) --sanity check: make sure we're still in range
+			s.result=kanji[idx]
 			s.done=true
-			s.result=rnd(kanji)
 		end
 	end
 
