@@ -113,6 +113,7 @@ function title_scn(nxt)
 
 	function scn.init(s)
 		music(0)
+		strings:setlang(s.lang)
 	end
 
 	function scn.update(s,dt)
@@ -142,7 +143,7 @@ function title_scn(nxt)
 
 	function scn.draw(s)
 		cls(1)
-		
+
 		--offset the camera
 		-- to center the falling beans
 		camera(64,-28)
@@ -226,7 +227,6 @@ function results_scn(nxt, score)
  local kanji = {
   {
    name="daikichi",
-   en_name="great fortune",
    params={
     {120,0},
     {120,8},
@@ -234,42 +234,36 @@ function results_scn(nxt, score)
   },
   {
    name="kichi",
-   en_name="good fortune",
    params={
     {120,8},
    },
   },
   {
    name="chuukichi",
-   en_name="fortune",
    params={
     {120,16},{120,8},
    },
   },
   {
    name="shoukichi",
-   en_name="small fortune",
    params={
     {120,24},{120,8},
    },
   },
   {
    name="mikichi",
-   en_name="future fortune",
    params={
     {112,0},{120,8},
    },
   },
   {
    name="kyou",
-   en_name="misfortune",
    params={
     {112,8},
    },
   },
   {
    name="daikyou",
-   en_name="great misfortune",
    params={
     {120,0},{112,8},
    },
@@ -341,10 +335,11 @@ function results_scn(nxt, score)
 		  sspr(sx,sy,8,8,x,y,16,16)
 		  x+=17
 		 end
-		 -- draw english translation
-		 local name = s.result.en_name
+		 -- draw furigana or english translation
+		 local key = "result_"..s.result.name
+		 local name = strings:get(key)
 		 local w = textwidth(name)
-		 x,y=64-(w/2),16
+		 x,y=64-(w/2),20
 		 print(name,x,y)
 		end
 		local scorex,scorey=58,58
@@ -354,7 +349,7 @@ function results_scn(nxt, score)
 		end
 		print("\^w\^t"..s.scorecounter, scorex, scorey)
 		if s.done then
-		 print("press ❎ to restart",26,100)
+		 print("press ❎ to restart",28,100)
 		end
 	end
 
@@ -1173,6 +1168,13 @@ end
 
 
 function textwidth(str)
+	local symbols={}
+	symbols[ord(" ")]  = 3
+	symbols[ord("!")]  = 3
+	symbols[ord("'")]  = 3
+	symbols[ord("゛")]  = 4
+	symbols[ord("よ")] = 5
+	
 	local function is_latin(code)
 		local is_upper=code>=67 and code<=90
 		local is_lower=code>=97 and code<=122
@@ -1180,13 +1182,8 @@ function textwidth(str)
 	end
 	
 	local function is_kana(code)
-		return code>=154
+		return code>=154 and not symbols[code]
 	end
-
-	local symbols={}
-	symbols[32]=3 -- [space]
-	symbols[33]=3 -- !
-	symbols[39]=3 -- '
 
 	local len=0
 	for i=1,#str do
@@ -1560,6 +1557,35 @@ function strings_init()
 				"isn't that cool! cool! also,\n"..
 				"in our language the word `bean'\n"..
 				"sounds like the word `healthy'.",
+			},
+			
+			result_daikichi={
+				jp="た゛いきち",
+				en="great fortune",
+			},
+			result_kichi={
+				jp="きち",
+				en="good fortune",
+			},
+			result_chuukichi={
+				jp="ちゅうきち",
+				en="fortune",
+			},
+			result_shoukichi={
+				jp="しょうきち",
+				en="small fortune",
+			},
+			result_mikichi={
+				jp="みきち",
+				en="future fortune",
+			},
+			result_kyou={
+				jp="きょう",
+				en="misfortune",
+			},
+			result_daikyou={
+				jp="た゛いきょう",
+				en="great misfortune",
 			},
 			
 			how_to_play_1={
