@@ -226,6 +226,7 @@ function results_scn(nxt, score)
  local kanji = {
   {
    name="daikichi",
+   en_name="great fortune",
    params={
     {120,0},
     {120,8},
@@ -233,36 +234,42 @@ function results_scn(nxt, score)
   },
   {
    name="kichi",
+   en_name="good fortune",
    params={
     {120,8},
    },
   },
   {
    name="chuukichi",
+   en_name="fortune",
    params={
     {120,16},{120,8},
    },
   },
   {
    name="shoukichi",
+   en_name="small fortune",
    params={
     {120,24},{120,8},
    },
   },
   {
    name="mikichi",
+   en_name="future fortune",
    params={
     {112,0},{120,8},
    },
   },
   {
    name="kyou",
+   en_name="misfortune",
    params={
     {112,8},
    },
   },
   {
    name="daikyou",
+   en_name="great misfortune",
    params={
     {120,0},{112,8},
    },
@@ -326,12 +333,19 @@ function results_scn(nxt, score)
 		-- draw results
 		color(7)
 		if s.result then
-		 x=64-#s.result.params*8
+			-- draw kanji
+		 local x=64-#s.result.params*8
+		 local y=32
 		 for k,v in ipairs(s.result.params) do
 		  local sx,sy=unpack(v)
-		  sspr(sx,sy,8,8,x,32,16,16)
+		  sspr(sx,sy,8,8,x,y,16,16)
 		  x+=17
 		 end
+		 -- draw english translation
+		 local name = s.result.en_name
+		 local w = textwidth(name)
+		 x,y=64-(w/2),16
+		 print(name,x,y)
 		end
 		local scorex,scorey=58,58
 		box(scorex-2,scorey-2,17,13,7)
